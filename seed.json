@@ -1,0 +1,265 @@
+{
+  "teams": [
+    {
+      "id": "north-a",
+      "name": "北部 A",
+      "short": "北A",
+      "region": "北部"
+    },
+    {
+      "id": "south-a",
+      "name": "南部 A",
+      "short": "南A",
+      "region": "南部"
+    },
+    {
+      "id": "south-b",
+      "name": "南部 B",
+      "short": "南B",
+      "region": "南部"
+    }
+  ],
+  "orders": [
+    {
+      "id": "WO-1101",
+      "title": "設備定期保養",
+      "customer": "永和門市",
+      "region": "北部",
+      "address": "新北市永和區",
+      "status": "已完成",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1102",
+      "title": "冷藏設備檢修",
+      "customer": "內湖門市",
+      "region": "北部",
+      "address": "台北市內湖區",
+      "status": "進行中",
+      "priority": "urgent"
+    },
+    {
+      "id": "WO-1103",
+      "title": "新機安裝",
+      "customer": "板橋門市",
+      "region": "北部",
+      "address": "新北市板橋區",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1104",
+      "title": "設備定期保養",
+      "customer": "左營門市",
+      "region": "南部",
+      "address": "高雄市左營區",
+      "status": "已完成",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1105",
+      "title": "管線檢查",
+      "customer": "仁德門市",
+      "region": "南部",
+      "address": "台南市仁德區",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1106",
+      "title": "設備異常檢修",
+      "customer": "鳳山門市",
+      "region": "南部",
+      "address": "高雄市鳳山區",
+      "status": "待出勤",
+      "priority": "urgent"
+    },
+    {
+      "id": "WO-1107",
+      "title": "濾芯更換",
+      "customer": "東區門市",
+      "region": "南部",
+      "address": "台南市東區",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1108",
+      "title": "新點位場勘",
+      "customer": "楠梓門市",
+      "region": "南部",
+      "address": "高雄市楠梓區",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1109",
+      "title": "設備漏水檢修",
+      "customer": "中山門市",
+      "region": "北部",
+      "address": "台北市中山區",
+      "status": "待出勤",
+      "priority": "urgent"
+    },
+    {
+      "id": "WO-1110",
+      "title": "設備定期保養",
+      "customer": "安平門市",
+      "region": "南部",
+      "address": "台南市安平區",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1111",
+      "title": "設備巡檢",
+      "customer": "信義門市",
+      "region": "北部",
+      "address": "台北市",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1112",
+      "title": "管線維護",
+      "customer": "松山門市",
+      "region": "北部",
+      "address": "台北市",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1113",
+      "title": "濾芯更換",
+      "customer": "大安門市",
+      "region": "北部",
+      "address": "台北市",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1114",
+      "title": "設備保養",
+      "customer": "南港門市",
+      "region": "北部",
+      "address": "台北市",
+      "status": "待出勤",
+      "priority": "normal"
+    },
+    {
+      "id": "WO-1115",
+      "title": "安裝驗收",
+      "customer": "士林門市",
+      "region": "北部",
+      "address": "台北市",
+      "status": "待出勤",
+      "priority": "normal"
+    }
+  ],
+  "assignments": [
+    {
+      "id": "a0",
+      "workOrderId": "WO-1101",
+      "teamId": "north-a",
+      "start": "09:00",
+      "end": "11:00",
+      "dayOffset": 0
+    },
+    {
+      "id": "a1",
+      "workOrderId": "WO-1102",
+      "teamId": "north-a",
+      "start": "09:00",
+      "end": "12:00",
+      "dayOffset": 3
+    },
+    {
+      "id": "a2",
+      "workOrderId": "WO-1103",
+      "teamId": "north-a",
+      "start": "13:00",
+      "end": "16:00",
+      "dayOffset": 4
+    },
+    {
+      "id": "a3",
+      "workOrderId": "WO-1104",
+      "teamId": "south-a",
+      "start": "09:00",
+      "end": "11:00",
+      "dayOffset": 1
+    },
+    {
+      "id": "a4",
+      "workOrderId": "WO-1105",
+      "teamId": "south-a",
+      "start": "10:00",
+      "end": "12:00",
+      "dayOffset": 3
+    },
+    {
+      "id": "a5",
+      "workOrderId": "WO-1106",
+      "teamId": "south-a",
+      "start": "09:00",
+      "end": "11:30",
+      "dayOffset": 4
+    },
+    {
+      "id": "a6",
+      "workOrderId": "WO-1107",
+      "teamId": "south-b",
+      "start": "13:00",
+      "end": "15:00",
+      "dayOffset": 2
+    },
+    {
+      "id": "a7",
+      "workOrderId": "WO-1108",
+      "teamId": "south-b",
+      "start": "10:00",
+      "end": "12:00",
+      "dayOffset": 4
+    },
+    {
+      "id": "a8",
+      "workOrderId": "WO-1111",
+      "teamId": "north-a",
+      "dayOffset": 2,
+      "start": "09:00",
+      "end": "10:00"
+    },
+    {
+      "id": "a9",
+      "workOrderId": "WO-1112",
+      "teamId": "north-a",
+      "dayOffset": 2,
+      "start": "10:15",
+      "end": "11:00"
+    },
+    {
+      "id": "a10",
+      "workOrderId": "WO-1113",
+      "teamId": "north-a",
+      "dayOffset": 2,
+      "start": "11:15",
+      "end": "12:00"
+    },
+    {
+      "id": "a11",
+      "workOrderId": "WO-1114",
+      "teamId": "north-a",
+      "dayOffset": 2,
+      "start": "13:00",
+      "end": "14:00"
+    },
+    {
+      "id": "a12",
+      "workOrderId": "WO-1115",
+      "teamId": "north-a",
+      "dayOffset": 2,
+      "start": "14:15",
+      "end": "15:15"
+    }
+  ]
+}
