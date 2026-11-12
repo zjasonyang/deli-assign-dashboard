@@ -103,7 +103,7 @@ h2 { font-size: 14px; font-weight: 600; }
 .lane.is-selected { background: color-mix(in srgb,var(--info-surface) 30%,var(--card)); }
 .lane.is-target { outline: 2px solid var(--ring); outline-offset: -3px; }
 .lane.is-editable:hover { background: color-mix(in srgb,var(--muted) 50%,var(--card)); }
-.job { display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-rows: 16px 18px 14px; align-content: center; align-items: center; column-gap: 4px; height: 68px; min-width: 0; padding: 6px 7px; border: 0; border-radius: 5px; background: var(--muted); line-height: 1.3; text-align: left; }
+.job { scroll-margin-top: 80px; display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-rows: 16px 18px 14px; align-content: center; align-items: center; column-gap: 4px; height: 68px; min-width: 0; padding: 6px 7px; border: 0; border-radius: 5px; background: var(--muted); line-height: 1.3; text-align: left; }
 .job[data-status="進行中"] { background: var(--info-surface); }
 .job[data-status="已完成"] { background: var(--success-surface); }
 .job:hover { outline: 1px solid var(--ring); background: var(--muted); }
@@ -287,6 +287,39 @@ textarea { min-height: 82px; resize: vertical; width: 100%; padding: 8px 10px; b
 .person-row .person-short { flex: 0 0 90px; }
 .new-person #new-person-short { flex: 0 0 100px; width: 100px; }
 @container app (max-width: 639px) { .tools #new-order { width: 100%; order: -1; } .calendar-actions { justify-content: flex-start; } }
+ .service-error { max-width: 440px; margin: 64px auto; padding: 24px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+.service-error h1 { white-space: normal; font-size: 20px; }
+.service-error p { margin: 12px 0 18px; color: var(--muted-foreground); }
+#calendar-legend .legend-toggle { display: none; font-size: 12px; cursor: pointer; color: var(--muted-foreground); }
+.lane { position: relative; }
+.lane-date { display: none; }
+.month-more.has-urgent { color: var(--warning); background: var(--warning-surface); }
+.mjob .urgent { flex: none; font-size: 10px; line-height: 14px; margin: 0; }
+@container app (min-width: 1380px) {
+  .week-scroll { overflow: visible; }
+  .week-head { position: sticky; top: 0; z-index: 10; border-radius: 11px 11px 0 0; border-bottom: 1px solid var(--border); }
+}
+@container app (max-width: 1379px) {
+  .team-row:not(.is-collapsed) .lane { padding-top: 27px; min-height: 399px; }
+  .lane-date { display: block; position: absolute; top: 6px; left: 8px; color: var(--muted-foreground); font-size: 11px; }
+}
+@container app (min-width: 1100px) {
+  [data-role="user"] #readonly-fields > div:first-child { grid-column: 1/-1; }
+}
+@container app (max-width: 899px) {
+  .mjob.has-urgent { flex-wrap: wrap; height: auto; min-height: 23px; gap: 2px 4px; }
+  .mjob.has-urgent .crew { flex-basis: 100%; justify-content: flex-start; }
+}
+@container app (max-width: 639px) {
+  #calendar-legend .legend-toggle { display: block; height: auto; padding: 0; border: 0; background: transparent; }
+  #calendar-legend.is-collapsed .calendar-key { display: none; }
+  #calendar-legend .calendar-key { margin-top: 8px; }
+  .person-filter .person-name { display: none; }
+  .person-filter b { margin: 0; }
+  .editor-header { position: relative; padding-right: 36px; min-height: 32px; }
+  .editor-header .icon { position: absolute; top: 0; right: 0; margin: 0; }
+}
+@media (max-width: 639px) { .service-error { margin: 40px 16px; } }
 @media (prefers-reduced-motion: no-preference) { button { transition: background-color .12s ease-out; } }
 </style>
 </head>
@@ -301,6 +334,7 @@ textarea { min-height: 82px; resize: vertical; width: 100%; padding: 8px 10px; b
   </form>
   <details><summary>本機測試帳號</summary><p>admin / admin123!　可編輯全部欄位</p><p>user / user123!　可編輯備註</p></details>
 </section>
+<section id="service-error" class="service-error" hidden role="alert"><h1>暫時無法載入派工日曆</h1><p id="service-error-text"></p><button class="primary" id="service-retry">重試</button></section>
 <main class="app" id="dashboard" hidden>
   <div class="topbar"><h1>派工日曆</h1><div class="account"><details class="account-menu" id="account-menu"><summary id="account-role"></summary><nav class="account-popover" aria-label="帳號選單"><a id="calendar-link" href="/">派工日曆</a><a id="personnel-link" href="/admin/personnel" hidden>人員管理</a><button id="logout">登出</button></nav></details></div></div>
   <div id="global-error" class="global-error" role="alert" hidden><span id="global-error-text"></span><button id="retry">重試</button></div>
@@ -330,7 +364,7 @@ textarea { min-height: 82px; resize: vertical; width: 100%; padding: 8px 10px; b
   <div class="layout">
     <aside class="rail" aria-label="工單與派工編輯">
       <section id="editor" class="editor" hidden aria-labelledby="editor-title">
-        <div class="editor-header"><h2 id="editor-title"></h2><p id="editor-meta" class="editor-meta"></p><p id="editor-details" class="editor-details"></p><button class="icon" id="close" aria-label="關閉工單詳情"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+        <div class="editor-header"><h2 id="editor-title" tabindex="-1"></h2><p id="editor-meta" class="editor-meta"></p><p id="editor-details" class="editor-details"></p><button class="icon" id="close" aria-label="關閉工單詳情"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
         <form id="order-form">
           <dl class="work-details" id="readonly-fields">
             <div><dt>項目名稱</dt><dd id="detail-title"></dd></div>
@@ -369,7 +403,7 @@ textarea { min-height: 82px; resize: vertical; width: 100%; padding: 8px 10px; b
       <details id="queue-panel" class="queue-panel" open><summary id="queue-title">待排工單<span class="count" id="queue-count"></span></summary><div id="queue" class="queue"></div></details>
     </aside>
     <section class="board" aria-label="派工日曆">
-      <div class="calendar-bar"><div class="calendar-key" aria-label="縮寫說明"><span><b>北A</b> 北部 A 組</span><span><b>南A</b> 南部 A 組</span><span><b>南B</b> 南部 B 組</span><span><i class="urgent">急</i> 急件</span><span><b>WO</b> 工單編號</span></div><div class="calendar-actions"><div id="personnel-highlights" class="personnel-highlights" role="group" aria-label="人員工單高亮"></div><div class="week-controls" id="week-controls"><button id="expand-all">全部展開</button><button id="collapse-all">全部收合</button></div></div></div>
+      <div class="calendar-bar"><div id="calendar-legend"><button type="button" class="legend-toggle" aria-expanded="true" aria-controls="legend-content">縮寫說明</button><div id="legend-content" class="calendar-key" aria-label="縮寫說明"><span><b>北A</b> 北部 A 組</span><span><b>南A</b> 南部 A 組</span><span><b>南B</b> 南部 B 組</span><span><i class="urgent">急</i> 急件</span><span><b>WO</b> 工單編號</span></div></div><div class="calendar-actions"><div id="personnel-highlights" class="personnel-highlights" role="group" aria-label="人員工單高亮"></div><div class="week-controls" id="week-controls"><button id="expand-all">全部展開</button><button id="collapse-all">全部收合</button></div></div></div>
       <div id="calendar"></div>
     </section>
   </div>
@@ -403,6 +437,86 @@ function readExpandedTeams() {
   return new Set(['north-a']);
 }
 let expandedTeams = readExpandedTeams();
+let highlightExpandedTeams = new Set();
+const isTeamExpanded = id => expandedTeams.has(id) || highlightExpandedTeams.has(id);
+let editorBaseline = null, savingOrder = false;
+let editorReturn = {scrollY:0,weekLeft:0,queueOpen:true};
+let initialWeekPosition = true;
+const memoryDrafts = new Map();
+const ORDER_FIELDS = ['title','customer','region','address','phone','status','priority','content'];
+
+function formValues() {
+  const values = {notes:$('edit-notes').value};
+  if (canEdit()) {
+    for (const field of ORDER_FIELDS) values[field] = $('edit-'+field).value;
+    values.person1Id = $('edit-person1').value || null;
+    values.person2Id = $('edit-person2').value || null;
+    values.assignment = $('edit-scheduled').checked ? {teamId:selectedTeam(),date:$('edit-date').value,start:$('edit-start').value,end:$('edit-end').value} : null;
+  }
+  return values;
+}
+function editorIsDirty() {
+  return !!selectedId && editorBaseline!==null && JSON.stringify(formValues())!==editorBaseline;
+}
+function draftKey() { return 'deli.orderDraft.'+user.id; }
+function clearDraft() {
+  if (!user) return;
+  memoryDrafts.delete(user.id);
+  try { sessionStorage.removeItem(draftKey()); } catch {}
+}
+function preserveDraft() {
+  if (!user || !selectedId) return;
+  if (!editorIsDirty()) { clearDraft(); return; }
+  const draft = {version:1,userId:user.id,role:user.role,orderId:selectedId,values:formValues()};
+  memoryDrafts.set(user.id,draft);
+  try { sessionStorage.setItem(draftKey(),JSON.stringify(draft)); } catch {}
+}
+function confirmDiscard() {
+  if (savingOrder) return false;
+  if (!editorIsDirty()) return true;
+  if (!window.confirm('有未儲存的變更，確定放棄並離開？')) return false;
+  clearDraft(); editorBaseline = null;
+  return true;
+}
+function restoreDraft() {
+  let draft = memoryDrafts.get(user.id);
+  if (!draft) { try { draft = JSON.parse(sessionStorage.getItem(draftKey())); } catch { return; } }
+  if (!draft || draft.role!==user.role) return;
+  const values = draft.values;
+  const valid = draft.version===1 && draft.userId===user.id && draft.role===user.role && typeof draft.orderId==='string' && values && typeof values.notes==='string'
+    && (user.role==='user' ? Object.keys(values).length===1 : ORDER_FIELDS.every(key=>typeof values[key]==='string')
+      && ['person1Id','person2Id'].every(key=>values[key]===null || personnel.some(p=>p.id===values[key]))
+      && (values.assignment===null || values.assignment && ['teamId','date','start','end'].every(key=>typeof values.assignment[key]==='string') && teams.some(t=>t.id===values.assignment.teamId)));
+  if (!valid || draft.orderId!==NEW_ORDER && !orders.some(o=>o.id===draft.orderId)) { clearDraft(); return; }
+  if (draft.orderId===NEW_ORDER && !canEdit()) { clearDraft(); return; }
+  openOrder(draft.orderId===NEW_ORDER ? null : draft.orderId,{force:true,focus:false});
+  $('edit-notes').value = values.notes;
+  if (canEdit()) {
+    for (const field of ORDER_FIELDS) $('edit-'+field).value = values[field];
+    for (const n of [1,2]) $('edit-person'+n).value = values['person'+n+'Id'] || '';
+    $('edit-scheduled').checked = !!values.assignment;
+    if (values.assignment) {
+      document.querySelector(`input[name="edit-team"][value="${values.assignment.teamId}"]`).checked = true;
+      $('edit-date').value = values.assignment.date;
+      $('edit-start').value = values.assignment.start;
+      $('edit-end').value = values.assignment.end;
+      const draftDate=parseDate(values.assignment.date); if (!Number.isNaN(draftDate.getTime())) cursor=draftDate;
+    }
+    syncScheduleFields();
+  }
+  render(); positionWeekDate(values.assignment?.date || dateKey(cursor));
+  $('feedback').className = 'saved'; $('feedback').textContent = '已還原未儲存草稿，請確認後再儲存。';
+}
+function positionWeekDate(key) {
+  const scroll = document.querySelector('.week-scroll'),lane = document.querySelector(`.lane[data-date="${key}"]`);
+  if (scroll && lane && scroll.scrollWidth>scroll.clientWidth) {
+    scroll.scrollLeft = Math.max(0,scroll.scrollLeft+lane.getBoundingClientRect().left-scroll.getBoundingClientRect().left-96);
+  }
+}
+window.addEventListener('beforeunload',e=>{
+  if (editorIsDirty()) { preserveDraft(); e.preventDefault(); e.returnValue=''; }
+});
+
 function rememberTeams() {
   try { localStorage.setItem('deli.expandedTeams',JSON.stringify([...expandedTeams])); } catch {}
 }
@@ -416,15 +530,18 @@ async function api(path, options = {}) {
   try {
     response = await fetch(path,{credentials:'same-origin',...options,
       headers:{...(options.body ? {'Content-Type':'application/json'} : {}),...options.headers}});
-  } catch { throw new Error('無法連線到服務，請確認本機服務已啟動。'); }
-  const data = await response.json();
+  } catch { throw new Error('無法連線到服務，請稍後重試。'); }
+  let data;
+  try { data = await response.json(); }
+  catch { const error=new Error('服務暫時無法使用，請稍後重試。'); error.status=response.status; throw error; }
   if (!response.ok) { const error = new Error(data.error || '服務暫時無法使用。'); error.status = response.status; throw error; }
   return data;
 }
 
 function showLogin(message = '') {
   user = null; teams = []; orders = []; assignments = []; personnel = []; selectedId = null;
-  activePersonId = null;
+  activePersonId = null; highlightExpandedTeams.clear(); editorBaseline = null;
+  $('service-error').hidden = true;
   $('account-menu').open = false;
   $('queue-panel').open = true;
   $('dashboard').hidden = true;
@@ -437,19 +554,38 @@ function showLogin(message = '') {
 }
 
 function showError(error) {
-  if (error.status === 401) { showLogin('登入已過期，請重新登入。'); return; }
-  $('global-error-text').textContent = error.message || '無法連線到服務，請確認服務已啟動。';
+  if (error.status === 401) { preserveDraft(); showLogin('登入已過期，請重新登入。'); return; }
+  $('global-error-text').textContent = error.message || '服務暫時無法使用，請稍後重試。';
   $('global-error').hidden = false;
 }
+function handleLoadError(error) {
+  if (error.status===401) { preserveDraft(); showLogin('請先登入。'); return; }
+  if (!$('dashboard').hidden) { showError(error); return; }
+  $('login-screen').hidden = true;
+  $('service-error').hidden = false;
+  $('service-error-text').textContent = error.message || '服務暫時無法使用，請稍後重試。';
+}
+async function startApplication() {
+  try { await loadData(); restoreDraft(); } catch (error) { handleLoadError(error); }
+}
+
 
 async function loadData() {
   const data = await api('/api/dashboard');
+  const identityChanged = !!user && (user.id!==data.user.id || user.role!==data.user.role);
+  const hadDraft = identityChanged && editorIsDirty();
+  if (identityChanged) {
+    preserveDraft(); selectedId=null; editorBaseline=null;
+    $('editor').hidden=true; $('queue-panel').open=true; $('account-menu').open=false;
+    activePersonId=null; highlightExpandedTeams.clear();
+  }
   ({teams,orders,assignments,personnel,user} = data);
   $('account-role').textContent = user.role;
   $('order-form').dataset.role = user.role;
   $('admin-fields').hidden = !canEdit();
   $('readonly-fields').hidden = canEdit();
   $('global-error').hidden = true;
+  $('service-error').hidden = true;
   $('login-screen').hidden = true;
   $('dashboard').hidden = false;
   $('personnel-link').hidden = !canEdit();
@@ -463,6 +599,11 @@ async function loadData() {
   $('access-denied').hidden = !management || canEdit();
   if (management && canEdit()) renderPersonnel();
   render();
+  if (identityChanged) {
+    restoreDraft();
+    $('global-error-text').textContent = hadDraft ? '登入身份已變更，原帳號的未儲存內容已暫存。' : '登入身份已變更，請重新選取工單。';
+    $('global-error').hidden=false;
+  }
 }
 
 function matchesPerson(order) {
@@ -478,7 +619,7 @@ function crewMarkup(order) {
   }).join('')+'</span>';
 }
 function renderPersonFilters() {
-  $('personnel-highlights').innerHTML=`<button class="person-filter" data-focus-person="" aria-pressed="${!activePersonId}">全部人員</button>`+personnel.map(p=>`<button class="person-filter" data-focus-person="${esc(p.id)}" aria-pressed="${activePersonId===p.id}" title="${esc(p.name)}"><b>${esc(p.short || p.name)}</b>${esc(p.name)}</button>`).join('');
+  $('personnel-highlights').innerHTML=`<button class="person-filter" data-focus-person="" aria-pressed="${!activePersonId}">全部人員</button>`+personnel.map(p=>`<button class="person-filter" data-focus-person="${esc(p.id)}" aria-pressed="${activePersonId===p.id}" title="${esc(p.name)}" aria-label="${esc((p.short || p.name)+' '+p.name)}"><b>${esc(p.short || p.name)}</b><span class="person-name">${esc(p.name)}</span></button>`).join('');
 }
 function jobButton(a) {
   const o = orderFor(a);
@@ -504,13 +645,13 @@ function renderWeek(list) {
       return `<div class="${key === dateKey(today) ? 'is-today' : ''}">週${w}<br><b>${d.getDate()}</b></div>`;
     }).join('')}</div>
     ${shownTeams.map(t => {
-      const expanded = expandedTeams.has(t.id);
+      const expanded = isTeamExpanded(t.id);
       return `<div class="team-row ${expanded ? '' : 'is-collapsed'}" data-team-row="${esc(t.id)}"><button type="button" class="team-name" data-toggle-team="${esc(t.id)}" aria-expanded="${expanded}" aria-label="${expanded ? '收合' : '展開'}${esc(t.name)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg><span><strong>${esc(t.name)}</strong><small>${visible.filter(a => a.teamId === t.id).length} 筆派工</small></span></button>
       ${weekdays.map((_,i) => {
         const key = dateKey(addDays(start,i)), cell = sorted(visible.filter(a => a.date === key && a.teamId === t.id));
         const editable = expanded && selectedId && canEdit() && cell.length === 0;
-        const contents = expanded ? cell.map(jobButton).join('') : cell.length ? `<button type="button" class="lane-summary" data-expand-team="${esc(t.id)}" data-date="${key}" aria-label="展開${esc(t.name)} ${key} 的 ${cell.length} 件派工">${cell.length} 件${cell.some(a => orderFor(a).priority==='urgent') ? '<small>含急件</small>' : ''}</button>` : '<span class="lane-zero">0 件</span>';
-        return `<div class="lane ${i>4 ? 'is-weekend' : ''} ${selectedDate === key ? 'is-selected' : ''} ${editable ? 'is-editable' : ''}" data-team="${esc(t.id)}" data-date="${key}" ${editable ? `tabindex="0" role="button" aria-label="將工單安排至 ${key} ${esc(t.name)}"` : `role="group" aria-label="${key} ${esc(t.name)}，${cell.length} 筆派工"`}>${contents}</div>`;
+        const contents = expanded ? cell.map(jobButton).join('') : cell.length ? `<button type="button" class="lane-summary order-card ${activePersonId ? cell.some(a=>matchesPerson(orderFor(a))) ? 'is-person-match' : 'is-person-dim' : ''}" data-expand-team="${esc(t.id)}" data-date="${key}" aria-label="展開${esc(t.name)} ${key} 的 ${cell.length} 件派工">${cell.length} 件${cell.some(a => orderFor(a).priority==='urgent') ? '<small>含急件</small>' : ''}</button>` : '';
+        return `<div class="lane ${i>4 ? 'is-weekend' : ''} ${selectedDate === key ? 'is-selected' : ''} ${editable ? 'is-editable' : ''}" data-team="${esc(t.id)}" data-date="${key}" ${editable ? `tabindex="0" role="button" aria-label="將工單安排至 ${key} ${esc(t.name)}"` : `role="group" aria-label="${key} ${esc(t.name)}，${cell.length} 筆派工"`}>${expanded ? `<span class="lane-date" aria-hidden="true">${key.slice(5).replace('-','/')} · 週${weekdays[i]}</span>` : ''}${contents}</div>`;
       }).join('')}</div>`;
     }).join('')}
   </div></div>`;
@@ -525,10 +666,11 @@ function renderMonth(list) {
     ${Array.from({length:days},(_,i) => {
       const d = addDays(gridStart,i), key = dateKey(d), daily = sorted(list.filter(a => a.date === key));
       const urgent = daily.some(a => orderFor(a).priority === 'urgent');
+      const hiddenUrgent = daily.slice(3).some(a=>orderFor(a).priority==='urgent');
       return `<div class="month-cell ${d.getMonth() !== cursor.getMonth() ? 'other' : ''}">
         <button class="day-button ${key === dateKey(today) ? 'is-today' : ''}" data-day="${key}" aria-label="查看 ${key} 所在週">${d.getDate()}</button>
-        ${daily.slice(0,3).map(a => { const o = orderFor(a); return `<button class="mjob order-card ${personFocusClass(o)}" data-order="${esc(o.id)}" data-status="${esc(o.status)}" aria-label="${esc(teamFor(a).name+' '+o.title+' '+o.customer)}" title="${esc(teamFor(a).name+' '+o.title+' '+o.customer)}"><b>${esc(teamFor(a).short)}</b><span class="month-title">${esc(o.title)}</span>${crewMarkup(o)}</button>`; }).join('')}
-        ${daily.length > 3 ? `<button class="month-more" data-day="${key}" aria-label="查看 ${key} 全部 ${daily.length} 筆派工">+${daily.length-3}</button>` : ''}
+        ${daily.slice(0,3).map(a => { const o = orderFor(a); return `<button class="mjob order-card ${o.priority==='urgent' ? 'has-urgent' : ''} ${personFocusClass(o)}" data-order="${esc(o.id)}" data-status="${esc(o.status)}" aria-label="${esc(teamFor(a).name+' '+o.title+' '+o.customer+(o.priority==='urgent'?'，急件':''))}" title="${esc(teamFor(a).name+' '+o.title+' '+o.customer+(o.priority==='urgent'?'，急件':''))}"><b>${esc(teamFor(a).short)}</b>${o.priority==='urgent'?'<i class="urgent">急</i>':''}<span class="month-title">${esc(o.title)}</span>${crewMarkup(o)}</button>`; }).join('')}
+        ${daily.length > 3 ? `<button class="month-more ${hiddenUrgent ? 'has-urgent' : ''}" data-day="${key}" aria-label="查看 ${key} 全部 ${daily.length} 筆派工${hiddenUrgent ? '，其餘工單包含急件' : ''}">+${daily.length-3}${hiddenUrgent ? ' · 急' : ''}</button>` : ''}
         ${daily.length ? `<button class="mcount order-card ${activePersonId ? daily.some(a=>matchesPerson(orderFor(a))) ? 'is-person-match' : 'is-person-dim' : ''} ${urgent ? 'urgent-count' : ''}" data-day="${key}" aria-label="查看 ${key} 的 ${daily.length} 筆派工${urgent ? '，含急件' : ''}">${daily.length}筆</button>` : ''}
       </div>`;
     }).join('')}
@@ -559,14 +701,18 @@ function render() {
   const left = document.querySelector('.week-scroll')?.scrollLeft || 0;
   $('calendar').innerHTML = view === 'week' ? renderWeek(filtered()) : renderMonth(filtered());
   const scroll = document.querySelector('.week-scroll');
-  if (scroll) scroll.scrollLeft = left;
+  if (scroll) { scroll.scrollLeft = left; if (initialWeekPosition) { positionWeekDate(dateKey(today)); initialWeekPosition=false; } }
   renderQueue();
   renderPersonFilters();
   highlightTarget();
 }
 
-function openOrder(id = null) {
+function openOrder(id = null, options = {}) {
   const creating = id === null;
+  const nextId = creating ? NEW_ORDER : id;
+  if (!options.force && selectedId===nextId && !$('editor').hidden) return;
+  if (!options.force && !confirmDiscard()) return;
+  if (!options.force) editorReturn = {scrollY:window.scrollY,weekLeft:document.querySelector('.week-scroll')?.scrollLeft || 0,queueOpen:$('editor').hidden ? $('queue-panel').open : editorReturn.queueOpen};
   if (creating && !canEdit()) return;
   selectedId = creating ? NEW_ORDER : id; lastOrderId = id;
   const defaultRegion = teams.find(t=>t.id===$('team').value)?.region || '北部';
@@ -576,7 +722,7 @@ function openOrder(id = null) {
   const defaultTeam = a?.teamId || filteredTeam?.id || teams.find(t => t.region === o.region).id;
   $('editor').hidden = false;
   $('queue-panel').open = false;
-  if (a) expandTeam(a.teamId);
+  if (a && !isTeamExpanded(a.teamId)) expandTeam(a.teamId);
   $('editor-title').textContent = creating ? '建立新工單' : '工單詳情';
   $('editor-meta').textContent = creating ? '' : `${o.id} · ${o.customer}`;
   $('detail-title').textContent = o.title;
@@ -608,15 +754,23 @@ function openOrder(id = null) {
   $('feedback').textContent = '';
   if (a) cursor = parseDate(a.date);
   render();
-  $('editor').scrollIntoView({block:'start'});
-  const focus = canEdit() ? $('edit-title') : $('edit-notes');
-  focus.focus({preventScroll:true});
+  editorBaseline = JSON.stringify(formValues());
+  if (options.focus!==false) {
+    $('editor').scrollIntoView({block:'start'});
+    const keyboard = options.keyboard || innerWidth>639 && !matchMedia('(pointer:coarse)').matches;
+    (keyboard ? canEdit() ? $('edit-title') : $('edit-notes') : $('editor-title')).focus({preventScroll:true});
+  }
 }
 
 function closeEditor() {
-  $('editor').hidden = true; $('queue-panel').open = true; selectedId = null; render();
+  if (!confirmDiscard()) return;
+  clearDraft(); editorBaseline = null;
+  $('editor').hidden = true; $('queue-panel').open = editorReturn.queueOpen; selectedId = null; render();
+  const scroll = document.querySelector('.week-scroll'); if (scroll) scroll.scrollLeft = editorReturn.weekLeft;
+  window.scrollTo({top:editorReturn.scrollY,behavior:'instant'});
   const target = [...document.querySelectorAll('[data-order]')].find(e => e.dataset.order === lastOrderId);
   (target || $('today')).focus({preventScroll:true});
+  (target || $('today')).scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
 }
 
 function setTarget(lane) {
@@ -628,13 +782,17 @@ function setTarget(lane) {
 }
 
 document.addEventListener('click', e => {
+  if (!$('account-menu').contains(e.target)) $('account-menu').open=false;
+  const link=e.target.closest('a[href]');
+  if (link && link.origin===location.origin && /^https?:$/.test(link.protocol) && !confirmDiscard()) { e.preventDefault(); return; }
   const personButton = e.target.closest('[data-focus-person]');
   if (personButton) {
     const id = personButton.dataset.focusPerson;
     activePersonId = id && activePersonId!==id ? id : null;
+    highlightExpandedTeams.clear();
     if (activePersonId) {
       const start=dateKey(weekStart(cursor)),end=dateKey(addDays(weekStart(cursor),6)),month=dateKey(cursor).slice(0,7);
-      filtered().filter(a=>matchesPerson(orderFor(a)) && (view==='week' ? a.date>=start && a.date<=end : a.date.slice(0,7)===month)).forEach(a=>expandTeam(a.teamId));
+      filtered().filter(a=>matchesPerson(orderFor(a)) && (view==='week' ? a.date>=start && a.date<=end : a.date.slice(0,7)===month)).forEach(a=>highlightExpandedTeams.add(a.teamId));
     }
     render();
     document.querySelector(`[data-focus-person="${activePersonId || ''}"]`).focus({preventScroll:true});
@@ -643,7 +801,7 @@ document.addEventListener('click', e => {
   const toggle = e.target.closest('[data-toggle-team]');
   if (toggle) {
     const id = toggle.dataset.toggleTeam;
-    if (expandedTeams.has(id)) expandedTeams.delete(id); else expandedTeams.add(id);
+    if (isTeamExpanded(id)) { expandedTeams.delete(id); highlightExpandedTeams.delete(id); } else expandedTeams.add(id);
     rememberTeams(); render();
     document.querySelector(`[data-toggle-team="${id}"]`).focus({preventScroll:true});
     return;
@@ -655,28 +813,30 @@ document.addEventListener('click', e => {
     return;
   }
   const order = e.target.closest('[data-order]');
-  if (order) { openOrder(order.dataset.order); return; }
+  if (order) { openOrder(order.dataset.order,{keyboard:e.detail===0}); return; }
   const day = e.target.closest('[data-day]');
   if (day) {
     cursor = parseDate(day.dataset.day); selectedDate = day.dataset.day; view = 'week'; render();
-    const lane = document.querySelector(`.lane[data-date="${day.dataset.day}"]`);
-    const scroll = document.querySelector('.week-scroll');
-    if (lane && scroll) scroll.scrollLeft = lane.offsetLeft - scroll.offsetLeft - 96;
+    positionWeekDate(day.dataset.day);
     return;
   }
   const lane = e.target.closest('.lane.is-editable');
   if (lane) setTarget(lane);
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && selectedId) closeEditor();
+  if (e.key==='Escape') {
+    if ($('account-menu').open) { $('account-menu').open=false; $('account-role').focus(); e.preventDefault(); return; }
+    if (selectedId && !e.target.matches('input,textarea,select')) { e.preventDefault(); closeEditor(); }
+  }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.lane.is-editable')) { e.preventDefault(); setTarget(e.target); }
 });
 $('order-form').addEventListener('input', e => {
-  if (e.target.matches('input[name="edit-team"],#edit-date') && $('edit-scheduled').checked && !expandedTeams.has(selectedTeam())) {
+  if (e.target.matches('input[name="edit-team"],#edit-date') && $('edit-scheduled').checked && !isTeamExpanded(selectedTeam())) {
     expandTeam(selectedTeam()); render();
   }
-  highlightTarget();
+  highlightTarget(); preserveDraft();
 });
+$('order-form').addEventListener('change',preserveDraft);
 $('edit-scheduled').onchange = syncScheduleFields;
 for (const mode of ['week','month']) $(mode).onclick = () => { view = mode; render(); };
 for (const [id,direction] of [['prev',-1],['next',1]]) $(id).onclick = () => {
@@ -685,41 +845,49 @@ for (const [id,direction] of [['prev',-1],['next',1]]) $(id).onclick = () => {
 };
 $('team').onchange = () => { if ($('team').value !== 'all') expandTeam($('team').value); render(); };
 $('status').onchange = render;
-$('expand-all').onclick = () => { teams.forEach(t => expandedTeams.add(t.id)); rememberTeams(); render(); };
-$('collapse-all').onclick = () => { expandedTeams.clear(); rememberTeams(); render(); };
-$('today').onclick = () => { cursor = new Date(today); selectedDate = dateKey(today); render(); };
+$('expand-all').onclick = () => { teams.forEach(t => expandedTeams.add(t.id)); highlightExpandedTeams.clear(); rememberTeams(); render(); };
+$('collapse-all').onclick = () => { expandedTeams.clear(); highlightExpandedTeams.clear(); rememberTeams(); render(); };
+$('today').onclick = () => { cursor = new Date(today); selectedDate = dateKey(today); render(); positionWeekDate(dateKey(today)); };
 $('close').onclick = closeEditor;
-$('new-order').onclick = () => openOrder();
+$('new-order').onclick = e => openOrder(null,{keyboard:e.detail===0});
 
 function syncScheduleFields() {
   const enabled = canEdit() && $('edit-scheduled').checked;
   $('schedule-fields').hidden = !enabled;
-  if (enabled && !expandedTeams.has(selectedTeam())) { expandTeam(selectedTeam()); render(); }
+  if (enabled && !isTeamExpanded(selectedTeam())) { expandTeam(selectedTeam()); render(); }
   $('schedule-fields').querySelectorAll('input').forEach(input => { input.disabled = !enabled; input.required = enabled; });
   highlightTarget();
 }
 
 $('order-form').onsubmit = async e => {
   e.preventDefault();
-  const orderId = selectedId, values = {notes:$('edit-notes').value};
-  if (canEdit()) {
-    for (const field of ['title','customer','region','address','phone','status','priority','content']) values[field] = $('edit-'+field).value;
-    values.person1Id = $('edit-person1').value || null;
-    values.person2Id = $('edit-person2').value || null;
-    values.assignment = $('edit-scheduled').checked ? {teamId:selectedTeam(),date:$('edit-date').value,start:$('edit-start').value,end:$('edit-end').value} : null;
-  }
+  if (savingOrder) return;
+  const orderId = selectedId, values = formValues();
   const submit = $('save-order');
-  submit.disabled = true; submit.textContent = '儲存中…';
+  savingOrder=true; submit.disabled = true; submit.textContent = '儲存中…';
   try {
     const creating = orderId===NEW_ORDER;
     const result = await api(creating ? '/api/orders' : '/api/orders/'+encodeURIComponent(orderId),{method:creating ? 'POST' : 'PUT',body:JSON.stringify(values)});
+    if (selectedId===orderId) {
+      selectedId=result.order.id; lastOrderId=result.order.id;
+      editorBaseline=JSON.stringify(values);
+      $('editor-title').textContent='工單詳情'; $('editor-meta').textContent=`${result.order.id} · ${result.order.customer}`;
+      const index=orders.findIndex(o=>o.id===result.order.id);
+      if (index<0) orders.push(result.order); else orders[index]=result.order;
+      preserveDraft();
+    }
     if (values.assignment) { cursor = parseDate(values.assignment.date); selectedDate = values.assignment.date; }
-    await loadData();
-    if (selectedId === orderId) { openOrder(result.order.id); $('feedback').className = 'saved'; $('feedback').textContent = creating ? '已建立工單。' : '已儲存。'; }
+    try { await loadData(); }
+    catch (error) { showError(error); if (selectedId) { $('feedback').className='error'; $('feedback').textContent='已儲存，但畫面更新失敗，請按重試。'; } return; }
+    if (selectedId===result.order.id) {
+      if (!editorIsDirty()) openOrder(result.order.id,{force:true,focus:false});
+      $('feedback').className='saved';
+      $('feedback').textContent=editorIsDirty() ? '已儲存送出的內容，目前仍有未儲存變更。' : creating ? '已建立工單。' : '已儲存。';
+    }
   } catch (error) {
     if (error.status === 401) showError(error);
     else if (selectedId === orderId) { $('feedback').className = 'error'; $('feedback').textContent = error.message; }
-  } finally { submit.disabled = false; submit.textContent = selectedId===NEW_ORDER ? '建立工單' : canEdit() ? '儲存工單' : '儲存備註'; }
+  } finally { savingOrder=false; submit.disabled = false; submit.textContent = selectedId===NEW_ORDER ? '建立工單' : canEdit() ? '儲存工單' : '儲存備註'; }
 };
 
 function renderPersonnel() {
@@ -746,22 +914,29 @@ $('login-form').onsubmit = async e => {
   e.preventDefault(); $('login-submit').disabled = true; $('login-submit').textContent = '登入中…'; $('login-error').hidden = true;
   try {
     await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value.trim(),password:$('password').value})});
-    selectedId = null; $('editor').hidden = true;
-    await loadData(); $('password').value = '';
+    selectedId = null; editorBaseline=null; $('editor').hidden = true; $('password').value = '';
+    try { await loadData(); restoreDraft(); } catch (error) { handleLoadError(error); }
   } catch (error) { showLogin(error.message); }
   finally { $('login-submit').disabled = false; $('login-submit').textContent = '登入'; }
 };
 $('logout').onclick = async () => {
+  if (!confirmDiscard()) return;
   $('logout').disabled = true;
   try {
-    await api('/api/logout',{method:'POST',body:'{}'});
+    await api('/api/logout',{method:'POST',body:'{}'}); clearDraft();
     cursor = new Date(today); view = 'week'; selectedDate = null;
     $('team').value = 'all'; $('status').value = 'all'; showLogin(); $('username').focus();
   } catch (error) { showError(error); }
   finally { $('logout').disabled = false; }
 };
-$('retry').onclick = async () => { try { await loadData(); } catch (error) { showError(error); } };
-loadData().catch(error => showLogin(error.status === 401 ? '' : '無法連線到服務，請確認本機服務已啟動，再重新整理。'));
+$('retry').onclick = async () => { try { await loadData(); } catch (error) { handleLoadError(error); } };
+$('service-retry').onclick = startApplication;
+const compactLegend=matchMedia('(max-width:639px)');
+const setLegend=expanded=>{ $('calendar-legend').classList.toggle('is-collapsed',!expanded); document.querySelector('.legend-toggle').setAttribute('aria-expanded',String(expanded)); };
+const syncLegend=()=>setLegend(!compactLegend.matches);
+document.querySelector('.legend-toggle').onclick=()=>setLegend($('calendar-legend').classList.contains('is-collapsed'));
+compactLegend.addEventListener('change',syncLegend); syncLegend();
+startApplication();
 </script>
 </body>
 </html>
