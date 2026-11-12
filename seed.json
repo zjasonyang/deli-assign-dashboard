@@ -27,7 +27,12 @@
       "region": "北部",
       "address": "新北市永和區",
       "status": "已完成",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "02-0000-0000",
+      "content": "示意內容：設備定期保養。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     },
     {
       "id": "WO-1102",
@@ -36,7 +41,12 @@
       "region": "北部",
       "address": "台北市內湖區",
       "status": "進行中",
-      "priority": "urgent"
+      "priority": "urgent",
+      "phone": "02-0000-0000",
+      "content": "示意內容：冷藏設備檢修。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     },
     {
       "id": "WO-1103",
@@ -45,7 +55,12 @@
       "region": "北部",
       "address": "新北市板橋區",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "02-0000-0000",
+      "content": "示意內容：新機安裝。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     },
     {
       "id": "WO-1104",
@@ -54,7 +69,12 @@
       "region": "南部",
       "address": "高雄市左營區",
       "status": "已完成",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "07-0000-0000",
+      "content": "示意內容：設備定期保養。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p3",
+      "person2Id": "p4",
+      "notes": ""
     },
     {
       "id": "WO-1105",
@@ -63,7 +83,12 @@
       "region": "南部",
       "address": "台南市仁德區",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "06-0000-0000",
+      "content": "示意內容：管線檢查。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p3",
+      "person2Id": "p4",
+      "notes": ""
     },
     {
       "id": "WO-1106",
@@ -72,7 +97,12 @@
       "region": "南部",
       "address": "高雄市鳳山區",
       "status": "待出勤",
-      "priority": "urgent"
+      "priority": "urgent",
+      "phone": "07-0000-0000",
+      "content": "示意內容：設備異常檢修。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p3",
+      "person2Id": "p4",
+      "notes": ""
     },
     {
       "id": "WO-1107",
@@ -81,7 +111,12 @@
       "region": "南部",
       "address": "台南市東區",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "06-0000-0000",
+      "content": "示意內容：濾芯更換。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p5",
+      "person2Id": "p6",
+      "notes": ""
     },
     {
       "id": "WO-1108",
@@ -90,7 +125,12 @@
       "region": "南部",
       "address": "高雄市楠梓區",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "07-0000-0000",
+      "content": "示意內容：新點位場勘。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p5",
+      "person2Id": "p6",
+      "notes": ""
     },
     {
       "id": "WO-1109",
@@ -99,7 +139,12 @@
       "region": "北部",
       "address": "台北市中山區",
       "status": "待出勤",
-      "priority": "urgent"
+      "priority": "urgent",
+      "phone": "02-0000-0000",
+      "content": "示意內容：設備漏水檢修。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     },
     {
       "id": "WO-1110",
@@ -108,7 +153,12 @@
       "region": "南部",
       "address": "台南市安平區",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "06-0000-0000",
+      "content": "示意內容：設備定期保養。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p3",
+      "person2Id": "p4",
+      "notes": ""
     },
     {
       "id": "WO-1111",
@@ -117,7 +167,12 @@
       "region": "北部",
       "address": "台北市",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "02-0000-0000",
+      "content": "示意內容：設備巡檢。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     },
     {
       "id": "WO-1112",
@@ -126,7 +181,12 @@
       "region": "北部",
       "address": "台北市",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "02-0000-0000",
+      "content": "示意內容：管線維護。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     },
     {
       "id": "WO-1113",
@@ -135,7 +195,12 @@
       "region": "北部",
       "address": "台北市",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "02-0000-0000",
+      "content": "示意內容：濾芯更換。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     },
     {
       "id": "WO-1114",
@@ -144,7 +209,12 @@
       "region": "北部",
       "address": "台北市",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "02-0000-0000",
+      "content": "示意內容：設備保養。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     },
     {
       "id": "WO-1115",
@@ -153,7 +223,12 @@
       "region": "北部",
       "address": "台北市",
       "status": "待出勤",
-      "priority": "normal"
+      "priority": "normal",
+      "phone": "02-0000-0000",
+      "content": "示意內容：安裝驗收。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。",
+      "person1Id": "p1",
+      "person2Id": "p2",
+      "notes": ""
     }
   ],
   "assignments": [
@@ -260,6 +335,38 @@
       "dayOffset": 2,
       "start": "14:15",
       "end": "15:15"
+    }
+  ],
+  "personnel": [
+    {
+      "id": "p1",
+      "name": "人員 1",
+      "short": "P1"
+    },
+    {
+      "id": "p2",
+      "name": "人員 2",
+      "short": "P2"
+    },
+    {
+      "id": "p3",
+      "name": "人員 3",
+      "short": "P3"
+    },
+    {
+      "id": "p4",
+      "name": "人員 4",
+      "short": "P4"
+    },
+    {
+      "id": "p5",
+      "name": "人員 5",
+      "short": "P5"
+    },
+    {
+      "id": "p6",
+      "name": "人員 6",
+      "short": "P6"
     }
   ]
 }

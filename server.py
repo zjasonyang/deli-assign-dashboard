@@ -39,60 +39,103 @@ def connect(path):
         db.close()
 
 
+def next_person_short(db):
+    numbers = [int(row['short'][1:]) for row in db.execute('SELECT short FROM personnel')
+               if row['short'] and re.fullmatch(r'P[0-9]+',row['short'],re.IGNORECASE)]
+    return 'P'+str(max(numbers,default=0)+1)
+
+
 def initialize(path):
     path.parent.mkdir(parents=True, exist_ok=True)
+    seed = json.loads((ROOT / 'seed.json').read_text())
     with connect(path) as db:
-        db.executescript('''
+        db.executescript("""
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY,
-                username TEXT UNIQUE NOT NULL,
+                id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL,
                 role TEXT NOT NULL CHECK(role IN ('admin','user')),
-                salt TEXT NOT NULL,
-                password_hash TEXT NOT NULL
+                salt TEXT NOT NULL, password_hash TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS sessions (
-                token_hash TEXT PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                expires_at INTEGER NOT NULL
+                token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), expires_at INTEGER NOT NULL
             );
             CREATE TABLE IF NOT EXISTS login_attempts (
                 username TEXT PRIMARY KEY, failures INTEGER NOT NULL, until REAL NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS teams (
-                id TEXT PRIMARY KEY, name TEXT NOT NULL,
-                short TEXT NOT NULL, region TEXT NOT NULL
-            );
+            CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY,name TEXT NOT NULL,short TEXT NOT NULL,region TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS personnel (id TEXT PRIMARY KEY,name TEXT UNIQUE NOT NULL,short TEXT NOT NULL COLLATE NOCASE);
             CREATE TABLE IF NOT EXISTS work_orders (
-                id TEXT PRIMARY KEY, title TEXT NOT NULL, customer TEXT NOT NULL,
-                region TEXT NOT NULL, address TEXT NOT NULL,
-                status TEXT NOT NULL, priority TEXT NOT NULL
+                id TEXT PRIMARY KEY,title TEXT NOT NULL,customer TEXT NOT NULL,region TEXT NOT NULL,address TEXT NOT NULL,
+                status TEXT NOT NULL,priority TEXT NOT NULL,phone TEXT NOT NULL DEFAULT '',content TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '',person1_id TEXT REFERENCES personnel(id),person2_id TEXT REFERENCES personnel(id)
             );
             CREATE TABLE IF NOT EXISTS assignments (
-                id TEXT PRIMARY KEY,
-                work_order_id TEXT UNIQUE NOT NULL REFERENCES work_orders(id),
-                team_id TEXT NOT NULL REFERENCES teams(id),
-                date TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL,
-                updated_by INTEGER REFERENCES users(id),
-                CHECK(start < end)
+                id TEXT PRIMARY KEY,work_order_id TEXT UNIQUE NOT NULL REFERENCES work_orders(id),
+                team_id TEXT NOT NULL REFERENCES teams(id),date TEXT NOT NULL,start TEXT NOT NULL,end TEXT NOT NULL,
+                updated_by INTEGER REFERENCES users(id),CHECK(start < end)
             );
-        ''')
-        for username, role, default in [('admin','admin','admin123!'), ('user','user','user123!')]:
-            if not db.execute('SELECT 1 FROM users WHERE username = ?', (username,)).fetchone():
+        """)
+        if not db.execute('SELECT 1 FROM personnel').fetchone():
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(personnel)')}
+            if 'short' not in columns: db.execute('ALTER TABLE personnel ADD COLUMN short TEXT')
+            db.executemany('INSERT INTO personnel(id,name,short) VALUES(:id,:name,:short)',seed['personnel'])
+        person_columns = {row['name'] for row in db.execute('PRAGMA table_info(personnel)')}
+        if 'short' not in person_columns:
+            db.execute('ALTER TABLE personnel ADD COLUMN short TEXT')
+        for person in db.execute("SELECT id FROM personnel WHERE short IS NULL OR short='' ORDER BY rowid").fetchall():
+            db.execute('UPDATE personnel SET short=? WHERE id=?',(next_person_short(db),person['id']))
+        db.execute('CREATE UNIQUE INDEX IF NOT EXISTS personnel_short_unique ON personnel(short COLLATE NOCASE)')
+        columns = {row['name'] for row in db.execute('PRAGMA table_info(work_orders)')}
+        for column in ('phone','content','notes'):
+            if column not in columns:
+                db.execute(f"ALTER TABLE work_orders ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
+        for column in ('person1_id','person2_id'):
+            if column not in columns:
+                db.execute(f'ALTER TABLE work_orders ADD COLUMN {column} TEXT REFERENCES personnel(id)')
+        if 'person1' in columns:
+            for order in db.execute('SELECT * FROM work_orders').fetchall():
+                assignment = db.execute('SELECT team_id FROM assignments WHERE work_order_id=?',(order['id'],)).fetchone()
+                team = assignment['team_id'] if assignment else 'north-a' if order['region']=='北部' else 'south-a'
+                first = {'north-a':1,'south-a':3,'south-b':5}.get(team,1)
+                ids = []
+                for i,column in enumerate(('person1','person2')):
+                    name = order[column]
+                    if not name:
+                        ids.append(None)
+                    elif name in ('人員 A（示意）','人員 B（示意）'):
+                        ids.append(f'p{first+i}')
+                    else:
+                        person = db.execute('SELECT id FROM personnel WHERE name=?',(name,)).fetchone()
+                        person_id = person['id'] if person else secrets.token_hex(12)
+                        if not person:
+                            db.execute('INSERT INTO personnel(id,name,short) VALUES(?,?,?)',(person_id,name,next_person_short(db)))
+                        ids.append(person_id)
+                db.execute('UPDATE work_orders SET person1_id=?,person2_id=? WHERE id=?',(*ids,order['id']))
+            db.execute('ALTER TABLE work_orders DROP COLUMN person1')
+            db.execute('ALTER TABLE work_orders DROP COLUMN person2')
+        for username,role,default in [('admin','admin','admin123!'),('user','user','user123!')]:
+            if not db.execute('SELECT 1 FROM users WHERE username=?',(username,)).fetchone():
                 salt = secrets.token_hex(16)
-                password = os.environ.get(f'DELI_{role.upper()}_PASSWORD', default)
+                password = os.environ.get(f'DELI_{role.upper()}_PASSWORD',default)
                 db.execute('INSERT INTO users(username,role,salt,password_hash) VALUES(?,?,?,?)',
-                           (username, role, salt, password_hash(password, salt)))
+                           (username,role,salt,password_hash(password,salt)))
         if not db.execute('SELECT 1 FROM teams').fetchone():
-            seed = json.loads((ROOT / 'seed.json').read_text())
-            db.executemany('INSERT INTO teams VALUES(:id,:name,:short,:region)', seed['teams'])
-            db.executemany('INSERT INTO work_orders VALUES(:id,:title,:customer,:region,:address,:status,:priority)', seed['orders'])
+            db.executemany('INSERT INTO teams VALUES(:id,:name,:short,:region)',seed['teams'])
+            db.executemany("""INSERT INTO work_orders(id,title,customer,region,address,status,priority,phone,content,notes,person1_id,person2_id)
+                VALUES(:id,:title,:customer,:region,:address,:status,:priority,:phone,:content,:notes,:person1Id,:person2Id)""",seed['orders'])
             today = datetime.now(ZoneInfo('Asia/Taipei')).date()
-            monday = today - timedelta(days=today.weekday())
+            monday = today-timedelta(days=today.weekday())
             for item in seed['assignments']:
                 db.execute('INSERT INTO assignments(id,work_order_id,team_id,date,start,end) VALUES(?,?,?,?,?,?)',
-                           (item['id'],item['workOrderId'],item['teamId'],str(monday + timedelta(days=item['dayOffset'])),item['start'],item['end']))
-        db.execute('DELETE FROM sessions WHERE expires_at <= ?', (int(time.time()),))
+                           (item['id'],item['workOrderId'],item['teamId'],str(monday+timedelta(days=item['dayOffset'])),item['start'],item['end']))
+        db.execute('DELETE FROM sessions WHERE expires_at<=?',(int(time.time()),))
     path.chmod(0o600)
+
+
+def read_orders(db):
+    return [dict(row) for row in db.execute("""SELECT w.id,w.title,w.customer,w.region,w.address,w.status,w.priority,
+        w.phone,w.content,w.notes,w.person1_id AS person1Id,w.person2_id AS person2Id,
+        COALESCE(p1.name,'') AS person1,COALESCE(p2.name,'') AS person2
+        FROM work_orders w LEFT JOIN personnel p1 ON p1.id=w.person1_id LEFT JOIN personnel p2 ON p2.id=w.person2_id ORDER BY w.id""")]
 
 
 class ApiError(Exception):
@@ -120,7 +163,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError(415, '請使用 JSON 格式。')
         try:
             length = int(self.headers.get('Content-Length','0'))
-            if not 0 < length <= 16384:
+            if not 0 < length <= 65536:
                 raise ApiError(413, '請求內容大小不正確。')
             data = json.loads(self.rfile.read(length))
         except (ValueError, UnicodeDecodeError):
@@ -169,7 +212,7 @@ class Handler(BaseHTTPRequestHandler):
         method = self.command
         if method in ('POST','PUT'):
             self.validate_origin()
-        if method == 'GET' and path == '/':
+        if method == 'GET' and path in ('/','/admin/personnel'):
             html = (ROOT / 'index.html').read_text()
             if self.server.public_origin:
                 html = re.sub(r'<details><summary>本機測試帳號</summary>.*?</details>', '', html, flags=re.S)
@@ -201,10 +244,21 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, {
                     'user':user,
                     'teams':[dict(r) for r in db.execute('SELECT * FROM teams ORDER BY id')],
-                    'orders':[dict(r) for r in db.execute('SELECT * FROM work_orders ORDER BY id')],
+                    'orders':read_orders(db),
+                    'personnel':[dict(r) for r in db.execute('SELECT * FROM personnel ORDER BY rowid')],
                     'assignments':[dict(r) for r in db.execute('''SELECT id, work_order_id AS workOrderId, team_id AS teamId,
                         date,start,end FROM assignments ORDER BY date,start''')],
                 })
+            elif method == 'POST' and path == '/api/orders':
+                if user['role']!='admin':
+                    raise ApiError(403,'只有 admin 可以建立工單。')
+                self.save_order(db,None,self.body(),user,create=True)
+            elif method == 'PUT' and re.fullmatch(r'/api/orders/[^/]+',path):
+                self.save_order(db,path.rsplit('/',1)[1],self.body(),user)
+            elif (method=='POST' and path=='/api/personnel') or (method=='PUT' and re.fullmatch(r'/api/personnel/[^/]+',path)):
+                if user['role']!='admin':
+                    raise ApiError(403,'只有 admin 可以管理人員。')
+                self.save_person(db,path,self.body(),method)
             elif method == 'PUT' and path == '/api/assignments':
                 if user['role'] != 'admin':
                     raise ApiError(403, '只有 admin 可以修改派工。')
@@ -242,7 +296,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(200, {'user':{'id':row['id'],'username':row['username'],'role':row['role']}},
                    self.session_cookie(token, SESSION_SECONDS))
 
-    def save_assignment(self, db, data, user):
+    def write_assignment(self, db, data, user):
         keys = ('workOrderId','teamId','date','start','end')
         if any(not isinstance(data.get(k),str) for k in keys):
             raise ApiError(400, '請填寫完整的工單、團隊、日期與時間。')
@@ -257,7 +311,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(400, '時間格式不正確。')
         if data['start'] >= data['end']:
             raise ApiError(400, '結束時間須晚於開始時間。')
-        db.execute('BEGIN IMMEDIATE')
+        if not db.in_transaction:
+            db.execute('BEGIN IMMEDIATE')
         if not db.execute('SELECT 1 FROM work_orders WHERE id=?',(data['workOrderId'],)).fetchone():
             raise ApiError(404, '找不到工單。')
         if not db.execute('SELECT 1 FROM teams WHERE id=?',(data['teamId'],)).fetchone():
@@ -272,7 +327,81 @@ class Handler(BaseHTTPRequestHandler):
         db.execute('''INSERT INTO assignments VALUES(?,?,?,?,?,?,?) ON CONFLICT(work_order_id)
             DO UPDATE SET team_id=excluded.team_id,date=excluded.date,start=excluded.start,end=excluded.end,updated_by=excluded.updated_by''',
             (assignment_id,data['workOrderId'],data['teamId'],data['date'],data['start'],data['end'],user['id']))
-        self.reply(200, {'assignment':{'id':assignment_id,**{k:data[k] for k in keys}}})
+        return {'id':assignment_id,**{k:data[k] for k in keys}}
+
+    def save_assignment(self,db,data,user):
+        self.reply(200,{'assignment':self.write_assignment(db,data,user)})
+
+    def save_order(self,db,order_id,data,user,create=False):
+        fields = {'title':200,'customer':200,'region':10,'address':500,'status':20,'priority':20,'phone':100,'content':5000,'notes':5000}
+        allowed = set(fields)|{'person1Id','person2Id','assignment'} if user['role']=='admin' else {'notes'}
+        if not data or set(data)-allowed:
+            raise ApiError(403 if user['role']!='admin' else 400,'user 只能修改備註。' if user['role']!='admin' else '工單欄位不正確。')
+        if create and not {'title','customer'}.issubset(data):
+            raise ApiError(400,'請填寫項目名稱與客戶名稱。')
+        for name,limit in fields.items():
+            if name in data and (not isinstance(data[name],str) or len(data[name])>limit):
+                raise ApiError(400,f'{name} 格式或長度不正確。')
+        for name in ('title','customer'):
+            if name in data and not data[name].strip():
+                raise ApiError(400,'項目名稱與客戶名稱不可空白。')
+        for name,values in [('region',('北部','南部')),('status',('待出勤','進行中','已完成')),('priority',('normal','urgent'))]:
+            if name in data and data[name] not in values:
+                raise ApiError(400,'地區、狀態或優先順序不正確。')
+        db.execute('BEGIN IMMEDIATE')
+        if create:
+            numbers = [int(row['id'][3:]) for row in db.execute('SELECT id FROM work_orders') if re.fullmatch(r'WO-[0-9]+',row['id'])]
+            order_id = 'WO-'+str(max(numbers,default=0)+1).zfill(4)
+            db.execute('''INSERT INTO work_orders(id,title,customer,region,address,status,priority,phone,content,notes)
+                VALUES(?,?,?,'北部','','待出勤','normal','','','')''',(order_id,data['title'],data['customer']))
+        existing = db.execute('SELECT * FROM work_orders WHERE id=?',(order_id,)).fetchone()
+        if not existing:
+            raise ApiError(404,'找不到工單。')
+        people = []
+        for key,column in [('person1Id','person1_id'),('person2Id','person2_id')]:
+            value = data.get(key,existing[column])
+            if value is not None and (not isinstance(value,str) or not db.execute('SELECT 1 FROM personnel WHERE id=?',(value,)).fetchone()):
+                raise ApiError(400,'找不到所選人員。')
+            people.append(value)
+        if {'person1Id','person2Id'} & data.keys() and people[0] and people[0]==people[1]:
+            raise ApiError(400,'兩位人員不可重複。')
+        changes = {name:data[name] for name in fields if name in data}
+        for key,column in [('person1Id','person1_id'),('person2Id','person2_id')]:
+            if key in data:
+                changes[column] = data[key]
+        if changes:
+            db.execute('UPDATE work_orders SET '+','.join(f'{key}=?' for key in changes)+' WHERE id=?',(*changes.values(),order_id))
+        if 'assignment' in data:
+            assignment = data['assignment']
+            if assignment is None:
+                db.execute('DELETE FROM assignments WHERE work_order_id=?',(order_id,))
+            elif isinstance(assignment,dict) and set(assignment)=={'teamId','date','start','end'}:
+                self.write_assignment(db,{'workOrderId':order_id,**assignment},user)
+            else:
+                raise ApiError(400,'派工欄位不正確。')
+        self.reply(201 if create else 200,{'order':next(order for order in read_orders(db) if order['id']==order_id)})
+
+    def save_person(self,db,path,data,method):
+        if not {'name'}.issubset(data) or set(data)-{'name','short'} or not isinstance(data['name'],str) or not 1<=len(data['name'].strip())<=80:
+            raise ApiError(400,'請輸入 1 至 80 字的人員姓名。')
+        if 'short' in data and (not isinstance(data['short'],str) or not 1<=len(data['short'].strip())<=8):
+            raise ApiError(400,'縮寫須為 1 至 8 字。')
+        name = data['name'].strip()
+        db.execute('BEGIN IMMEDIATE')
+        person_id = secrets.token_hex(12) if method=='POST' else path.rsplit('/',1)[1]
+        existing = db.execute('SELECT * FROM personnel WHERE id=?',(person_id,)).fetchone()
+        if method=='PUT' and not existing:
+            raise ApiError(404,'找不到人員。')
+        short = data['short'].strip() if 'short' in data else existing['short'] if existing else next_person_short(db)
+        if db.execute('SELECT 1 FROM personnel WHERE name=? AND id!=?',(name,person_id)).fetchone():
+            raise ApiError(409,'此人員姓名已存在。')
+        if any(person['id']!=person_id and person['short'].casefold()==short.casefold() for person in db.execute('SELECT id,short FROM personnel')):
+            raise ApiError(409,'此人員縮寫已存在。')
+        if method=='POST':
+            db.execute('INSERT INTO personnel(id,name,short) VALUES(?,?,?)',(person_id,name,short))
+        else:
+            db.execute('UPDATE personnel SET name=?,short=? WHERE id=?',(name,short,person_id))
+        self.reply(200,{'person':{'id':person_id,'name':name,'short':short}})
 
     def handle_request(self):
         try:

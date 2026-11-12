@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deli · 派工日曆（示意資料）</title>
+<script>
+if (new URLSearchParams(location.search).get('theme') === 'light') {
+  document.documentElement.dataset.theme = 'light';
+}
+</script>
 <style>
 :root {
   color-scheme: light dark;
@@ -25,13 +30,14 @@
   --radius: 12px;
   --font-sans: "Noto Sans TC", system-ui, sans-serif;
 }
+:root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; scrollbar-color: var(--border) transparent; }
 body { margin: 0; background: var(--background); color: var(--foreground); font: 13px/1.5 var(--font-sans); }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 button, select, input { height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); padding: 0 10px; }
 button { cursor: pointer; }
 button:hover { background: var(--muted); }
-button:focus-visible, input:focus-visible, select:focus-visible, .lane:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .lane:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 ::selection { background: var(--primary); color: var(--primary-foreground); }
 h1, h2, p { margin: 0; }
 h1 { font-size: 18px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap; }
@@ -49,7 +55,7 @@ h2 { font-size: 14px; font-weight: 600; }
 .tabs button[aria-pressed="true"] { background: var(--card); box-shadow: 0 1px 3px #0001; }
 .layout { display: flex; flex-direction: column; gap: 20px; align-items: start; }
 .rail, .board { min-width: 0; }
-.rail { display: grid; gap: 16px; }
+.rail { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
 .section-head { justify-content: space-between; margin-bottom: 10px; }
 .count { color: var(--muted-foreground); margin-left: 6px; font-size: 12px; font-weight: 400; }
 .queue { display: grid; gap: 8px; }
@@ -69,7 +75,26 @@ h2 { font-size: 14px; font-weight: 600; }
 .week-head b { display: inline-grid; place-items: center; width: 27px; height: 26px; font-size: 15px; font-weight: 600; margin-top: 3px; color: var(--foreground); border-radius: 5px; }
 .week-head .is-today b { background: var(--primary); color: var(--primary-foreground); }
 .team-row { border-top: 1px solid var(--border); background: var(--card); }
-.team-name { position: sticky; left: 0; z-index: 2; padding: 14px 10px; background: var(--card); font-weight: 600; font-size: 13px; border-right: 1px solid var(--border); }
+.team-name { position: sticky; left: 0; z-index: 2; height: auto; min-height: 54px; padding: 12px 8px; background: var(--card); font-weight: 600; font-size: 12px; border: 0; border-radius: 0; border-right: 1px solid var(--border); text-align: left; display: flex; align-items: start; gap: 5px; }
+.team-name svg { width: 12px; height: 12px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; margin-top: 3px; }
+.team-name[aria-expanded="true"] svg { transform: rotate(90deg); }
+.team-name strong { font-weight: 600; white-space: nowrap; }
+.team-row.is-collapsed .team-name { padding: 8px; }
+.team-row.is-collapsed .team-name small { margin-top: 2px; font-size: 11px; }
+.team-row.is-collapsed .lane { min-height: 54px; padding: 10px 8px; display: flex; align-items: center; }
+.lane-summary { height: auto; border: 0; background: transparent; padding: 4px 6px; font-size: 12px; white-space: nowrap; }
+.lane-summary small { color: var(--warning); margin-left: 6px; font-size: 11px; }
+.lane-zero { padding: 4px 6px; color: var(--muted-foreground); font-size: 12px; }
+.calendar-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 10px; }
+.calendar-bar .calendar-key { margin-bottom: 0; }
+.week-controls { display: flex; gap: 6px; }
+.week-controls button { height: 28px; font-size: 12px; }
+.queue-panel summary { cursor: pointer; padding: 3px 0; font-size: 13px; font-weight: 600; }
+.queue-panel[open] .queue { margin-top: 8px; }
+.editor-header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.editor-header h2 { white-space: nowrap; }
+.editor-header .editor-details { margin: 0; }
+.editor-header .icon { margin-left: auto; }
 .team-name small { display: block; font-weight: 400; color: var(--muted-foreground); font-size: 12px; margin-top: 5px; }
 .week-head .corner { position: sticky; left: 0; z-index: 3; display: grid; place-items: center; background: var(--muted); border-right: 1px solid var(--border); }
 .lane { min-width: 0; min-height: 380px; padding: 8px; border-right: 1px solid var(--border); display: grid; grid-auto-rows: 68px; gap: 6px; align-content: start; }
@@ -110,8 +135,16 @@ h2 { font-size: 14px; font-weight: 600; }
 .editor[hidden] { display: none; }
 .editor .section-head { align-items: start; margin-bottom: 6px; }
 .editor h2 { font-size: 15px; }
+.work-details { display: grid; gap: 12px; margin: 16px 0 0; }
+.work-details > div { display: grid; grid-template-columns: 80px minmax(0,1fr); gap: 8px; }
+.work-details dt { font-size: 12px; color: var(--muted-foreground); }
+.work-details dd { margin: 0; font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.work-details .personnel { display: flex; gap: 6px; flex-wrap: wrap; }
+.work-details .personnel span { background: var(--muted); border-radius: 4px; padding: 2px 6px; }
+.work-details a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.work-details #detail-content { white-space: pre-wrap; line-height: 1.7; }
 .editor-meta { color: var(--muted-foreground); font-size: 12px; }
-.editor form { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 12px; margin-top: 16px; }
+.editor form { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .editor label { display: grid; gap: 5px; font-size: 12px; }
 .editor input { width: 100%; min-width: 0; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; grid-column: 1/-1; }
@@ -135,7 +168,7 @@ legend { font-size: 12px; margin-bottom: 6px; padding: 0; }
 .bar h2 { font-size: 18px; font-weight: 600; white-space: nowrap; }
 .rail, .board { width: 100%; }
 .queue { grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); }
-.rail:has(.editor:not([hidden])) { grid-template-columns: minmax(280px,380px) minmax(0,1fr); align-items: start; }
+
 .editor { background: var(--card); }
 .editor-details { margin-top: 8px; font-size: 12px; color: var(--muted-foreground); }
 .login { max-width: 360px; margin: 64px auto; padding: 24px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
@@ -154,10 +187,9 @@ button:disabled { opacity: .5; cursor: wait; }
 @container app (max-width: 899px) {
   .month-cell { min-height: 78px; }
   .mjob { display: inline-flex; width: auto; padding-inline: 4px; margin-right: 3px; }
-  .mjob span { display: none; }
+  .mjob .month-title { display: none; }
 }
 @container app (max-width: 639px) {
-  .rail:has(.editor:not([hidden])) { grid-template-columns: 1fr; }
   .bar { gap: 10px; margin-bottom: 16px; }
   .tools { width: 100%; margin: 0; justify-content: space-between; gap: 6px; }
   .tools .tabs { margin-left: auto; }
@@ -171,6 +203,90 @@ button:disabled { opacity: .5; cursor: wait; }
   .mcount { display: block; }
 }
 @media (max-width: 639px) { .app { padding: 16px 12px; } .login { margin: 40px 16px; max-width: none; } }
+textarea { min-height: 82px; resize: vertical; width: 100%; padding: 8px 10px; background: var(--card); color: inherit; border: 1px solid var(--border); border-radius: 6px; line-height: 1.6; }
+.admin-fields { display: contents; }
+.basic-fields { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 10px 12px; min-width: 0; }
+.basic-fields label { grid-column: span 3; }
+.basic-fields .span-two { grid-column: span 2; }
+.admin-fields select, .admin-fields input { min-width: 0; width: 100%; }
+.content-field, .notes-field, .schedule-block { min-width: 0; }
+.schedule-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 12px; margin-top: 10px; }
+.schedule-fields .team-field, .schedule-fields .date-field { grid-column: 1/-1; }
+.schedule-toggle { display: flex !important; align-items: center; gap: 7px !important; }
+.schedule-toggle input { width: 15px; height: 15px; }
+#readonly-fields { grid-column: 1/-1; margin: 0; }
+.editor .actions { margin-top: 0; }
+@container app (min-width: 1100px) {
+  .editor form[data-role="admin"] { grid-template-columns: minmax(0,1.35fr) minmax(0,1fr) minmax(0,.9fr); gap: 10px 24px; }
+  [data-role="admin"] .basic-fields { grid-column: 1; grid-row: 1/3; }
+  [data-role="admin"] .content-field { grid-column: 2; grid-row: 1; }
+  [data-role="admin"] .notes-field { grid-column: 2; grid-row: 2; }
+  [data-role="admin"] .schedule-block { grid-column: 3; grid-row: 1/3; }
+  .editor form[data-role="user"] { grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: 10px 24px; }
+  [data-role="user"] #readonly-fields { grid-column: 1; grid-row: 1/3; grid-template-columns: repeat(2,minmax(0,1fr)); align-content: start; }
+  [data-role="user"] #readonly-fields > div:last-child { grid-column: 1/-1; }
+  [data-role="user"] .notes-field { grid-column: 2; grid-row: 1; }
+  [data-role="user"] .actions { grid-column: 2; grid-row: 2; align-self: start; }
+}
+@container app (640px <= width < 1100px) {
+  .editor form[data-role="admin"] { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 20px; }
+  [data-role="admin"] .basic-fields { grid-column: 1; grid-row: 1/3; }
+  [data-role="admin"] .content-field { grid-column: 2; grid-row: 1; }
+  [data-role="admin"] .notes-field { grid-column: 2; grid-row: 2; }
+  [data-role="admin"] .schedule-block { grid-column: 1/-1; }
+  [data-role="admin"] .schedule-fields { grid-template-columns: minmax(0,1.4fr) minmax(0,1fr) repeat(2,minmax(0,.8fr)); align-items: end; }
+  [data-role="admin"] .schedule-fields .team-field, [data-role="admin"] .schedule-fields .date-field { grid-column: auto; }
+  .editor form[data-role="user"] { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 20px; }
+  [data-role="user"] #readonly-fields { grid-column: 1; grid-row: 1/3; }
+  [data-role="user"] .notes-field { grid-column: 2; grid-row: 1; }
+  [data-role="user"] .actions { grid-column: 2; grid-row: 2; align-self: start; }
+}
+.account-menu { position: relative; }
+.account-menu summary { cursor: pointer; list-style: none; padding: 5px 10px; background: var(--muted); border-radius: 6px; }
+.account-menu summary::-webkit-details-marker { display: none; }
+.account-menu summary::after { content: ' ▾'; }
+.account-popover { position: absolute; right: 0; top: calc(100% + 6px); min-width: 150px; z-index: 30; padding: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; display: grid; gap: 3px; }
+.account-popover a, .account-popover button { display: block; padding: 6px 9px; height: auto; font-size: 13px; text-decoration: none; text-align: left; color: inherit; border: 0; background: transparent; border-radius: 5px; }
+.account-popover a:hover, .account-popover button:hover { background: var(--muted); }
+.account-popover a:focus-visible, .account-menu summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.calendar-key { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px; margin-bottom: 10px; color: var(--muted-foreground); font-size: 12px; }
+.calendar-key span { white-space: nowrap; }
+.calendar-key b { color: var(--foreground); font-weight: 500; }
+.personnel-page { max-width: 680px; margin: 0 auto; }
+.personnel-page h2 { font-size: 20px; margin: 18px 0; }
+.personnel-page a { color: inherit; text-underline-offset: 3px; }
+.person-row { display: flex; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.person-row label { flex: 1; }
+.person-row input { width: 100%; height: 36px; }
+.person-row button { flex: none; }
+.new-person { display: flex; gap: 10px; margin-top: 24px; }
+.new-person input { min-width: 0; flex: 1; height: 36px; }
+#people-feedback { margin-top: 12px; font-size: 13px; }
+#people-feedback.error { color: var(--warning); }
+#people-feedback.saved { color: var(--success); }
+ .tools { flex-wrap: wrap; }
+.calendar-actions { min-width: 0; max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; }
+.personnel-highlights { min-width: 0; max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.person-filter { max-width: 170px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; height: 28px; padding: 3px 7px; font-size: 12px; }
+.person-filter b { margin-right: 4px; font-size: 11px; font-weight: 600; }
+.person-filter[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.order-card.is-person-match { outline: 2px solid var(--primary); outline-offset: -2px; }
+.order-card.is-person-dim { opacity: .3; }
+.order-card.is-person-dim:hover, .order-card.is-person-dim:focus-visible { opacity: 1; }
+.crew { display: inline-flex; flex: none; align-items: center; gap: 3px; min-width: 0; }
+.person-code { display: inline-block; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 3px; border-radius: 3px; background: color-mix(in srgb,var(--foreground) 7%,transparent); color: var(--foreground); font-size: 10px; line-height: 14px; font-style: normal; }
+.job .customer { display: flex; gap: 5px; align-items: center; justify-content: space-between; overflow: visible; }
+.customer-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-footer { display: flex; gap: 8px; align-items: center; justify-content: space-between; min-width: 0; }
+.queue-footer .queue-meta { min-width: 0; }
+.mjob .month-title { min-width: 0; flex: 1; }
+.mjob .crew { margin-left: auto; display: inline-flex; flex: 1; justify-content: flex-end; overflow: hidden; }
+.mjob .person-code { max-width: 42px; }
+.mjob { min-width: 0; max-width: 100%; overflow: hidden; }
+.person-row label { min-width: 0; }
+.person-row .person-short { flex: 0 0 90px; }
+.new-person #new-person-short { flex: 0 0 100px; width: 100px; }
+@container app (max-width: 639px) { .tools #new-order { width: 100%; order: -1; } .calendar-actions { justify-content: flex-start; } }
 @media (prefers-reduced-motion: no-preference) { button { transition: background-color .12s ease-out; } }
 </style>
 </head>
@@ -183,11 +299,20 @@ button:disabled { opacity: .5; cursor: wait; }
     <p id="login-error" class="login-error" role="alert" hidden></p>
     <button id="login-submit" class="primary" type="submit">登入</button>
   </form>
-  <details><summary>本機測試帳號</summary><p>admin / admin123!　可編輯派工</p><p>user / user123!　可查看派工</p></details>
+  <details><summary>本機測試帳號</summary><p>admin / admin123!　可編輯全部欄位</p><p>user / user123!　可編輯備註</p></details>
 </section>
 <main class="app" id="dashboard" hidden>
-  <div class="topbar"><h1>派工日曆</h1><div class="account"><span id="account-role"></span><button id="logout">登出</button></div></div>
+  <div class="topbar"><h1>派工日曆</h1><div class="account"><details class="account-menu" id="account-menu"><summary id="account-role"></summary><nav class="account-popover" aria-label="帳號選單"><a id="calendar-link" href="/">派工日曆</a><a id="personnel-link" href="/admin/personnel" hidden>人員管理</a><button id="logout">登出</button></nav></details></div></div>
   <div id="global-error" class="global-error" role="alert" hidden><span id="global-error-text"></span><button id="retry">重試</button></div>
+  <section id="personnel-page" class="personnel-page" hidden aria-labelledby="people-heading">
+    <a id="back-calendar" href="/">返回派工日曆</a>
+    <h2 id="people-heading">人員管理</h2>
+    <div id="people-list"></div>
+    <form id="new-person" class="new-person"><input id="new-person-name" aria-label="新人員姓名" placeholder="新人員姓名" maxlength="80" required><input id="new-person-short" aria-label="新人員縮寫" placeholder="縮寫（自動）" maxlength="8"><button class="primary" type="submit">新增人員</button></form>
+    <p id="people-feedback" role="status"></p>
+  </section>
+  <p id="access-denied" class="global-error" hidden>此頁僅限 admin 使用。<a id="denied-back" href="/">返回派工日曆</a></p>
+  <div id="calendar-page">
   <header class="bar">
     <h2 id="range" aria-live="polite"></h2>
     <div class="nav">
@@ -196,6 +321,7 @@ button:disabled { opacity: .5; cursor: wait; }
       <button id="today">今天</button>
     </div>
     <div class="tools">
+      <button class="primary" id="new-order" hidden>建立新工單</button>
       <select id="team" aria-label="篩選團隊"><option value="all">全部團隊</option><option value="north-a">北部 A</option><option value="south-a">南部 A</option><option value="south-b">南部 B</option></select>
       <select id="status" aria-label="篩選工單狀態"><option value="all">全部狀態</option><option>待出勤</option><option>進行中</option><option>已完成</option></select>
       <div class="tabs" role="group" aria-label="日曆顯示方式"><button id="week" aria-pressed="true">週曆</button><button id="month" aria-pressed="false">月曆</button></div>
@@ -204,19 +330,49 @@ button:disabled { opacity: .5; cursor: wait; }
   <div class="layout">
     <aside class="rail" aria-label="工單與派工編輯">
       <section id="editor" class="editor" hidden aria-labelledby="editor-title">
-        <div class="section-head"><h2 id="editor-title"></h2><button class="icon" id="close" aria-label="關閉工單詳情"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
-        <p id="editor-meta" class="editor-meta"></p><p id="editor-details" class="editor-details"></p>
-        <form id="assignment-form">
-          <fieldset><legend>派工團隊</legend><div class="team-options" id="edit-team"></div></fieldset>
-          <label>出勤日期<input type="date" id="edit-date" required></label>
-          <label>開始時間<input type="time" id="edit-start" required></label>
-          <label>結束時間<input type="time" id="edit-end" required></label>
-          <div class="actions"><button class="primary" type="submit">儲存排程</button><span id="feedback" role="status"></span></div>
+        <div class="editor-header"><h2 id="editor-title"></h2><p id="editor-meta" class="editor-meta"></p><p id="editor-details" class="editor-details"></p><button class="icon" id="close" aria-label="關閉工單詳情"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+        <form id="order-form">
+          <dl class="work-details" id="readonly-fields">
+            <div><dt>項目名稱</dt><dd id="detail-title"></dd></div>
+            <div><dt>人員(主)</dt><dd id="detail-person1"></dd></div><div><dt>人員(從)</dt><dd id="detail-person2"></dd></div>
+            <div><dt>地址</dt><dd id="detail-address"></dd></div>
+            <div><dt>聯絡電話</dt><dd><a id="detail-phone"></a></dd></div>
+            <div><dt>內容</dt><dd id="detail-content"></dd></div>
+          </dl>
+          <div class="admin-fields" id="admin-fields" hidden>
+            <div class="basic-fields">
+              <label>項目名稱<input id="edit-title" maxlength="200" required></label>
+              <label>客戶／門市<input id="edit-customer" maxlength="200" required></label>
+              <label>人員(主)<select id="edit-person1" aria-label="人員(主)"></select></label>
+              <label>人員(從)<select id="edit-person2" aria-label="人員(從)"></select></label>
+              <label class="span-two">地區<select id="edit-region"><option>北部</option><option>南部</option></select></label>
+              <label class="span-two">狀態<select id="edit-status"><option>待出勤</option><option>進行中</option><option>已完成</option></select></label>
+              <label class="span-two">優先順序<select id="edit-priority"><option value="normal">一般</option><option value="urgent">急件</option></select></label>
+              <label>地址<input id="edit-address" maxlength="500"></label>
+              <label>聯絡電話<input id="edit-phone" type="tel" maxlength="100"></label>
+            </div>
+            <label class="content-field">內容<textarea id="edit-content" maxlength="5000" rows="3"></textarea></label>
+            <div class="schedule-block">
+              <label class="schedule-toggle"><input type="checkbox" id="edit-scheduled">安排出勤</label>
+              <div class="schedule-fields" id="schedule-fields">
+                <fieldset class="team-field"><legend>派工團隊</legend><div class="team-options" id="edit-team"></div></fieldset>
+                <label class="date-field">出勤日期<input type="date" id="edit-date"></label>
+                <label>開始時間<input type="time" id="edit-start"></label>
+                <label>結束時間<input type="time" id="edit-end"></label>
+              </div>
+            </div>
+          </div>
+          <label class="notes-field">備註<textarea id="edit-notes" maxlength="5000" rows="3"></textarea></label>
+          <div class="actions"><button class="primary" type="submit" id="save-order">儲存工單</button><span id="feedback" role="status"></span></div>
         </form>
       </section>
-      <section aria-labelledby="queue-title"><div class="section-head"><h2 id="queue-title">待排工單<span class="count" id="queue-count"></span></h2></div><div id="queue" class="queue"></div></section>
+      <details id="queue-panel" class="queue-panel" open><summary id="queue-title">待排工單<span class="count" id="queue-count"></span></summary><div id="queue" class="queue"></div></details>
     </aside>
-    <section id="calendar" class="board" aria-label="派工日曆"></section>
+    <section class="board" aria-label="派工日曆">
+      <div class="calendar-bar"><div class="calendar-key" aria-label="縮寫說明"><span><b>北A</b> 北部 A 組</span><span><b>南A</b> 南部 A 組</span><span><b>南B</b> 南部 B 組</span><span><i class="urgent">急</i> 急件</span><span><b>WO</b> 工單編號</span></div><div class="calendar-actions"><div id="personnel-highlights" class="personnel-highlights" role="group" aria-label="人員工單高亮"></div><div class="week-controls" id="week-controls"><button id="expand-all">全部展開</button><button id="collapse-all">全部收合</button></div></div></div>
+      <div id="calendar"></div>
+    </section>
+  </div>
   </div>
 </main>
 <script>
@@ -228,7 +384,9 @@ const parseDate = s => new Date(s+'T12:00:00');
 const addDays = (d,n) => { const next = new Date(d); next.setDate(next.getDate()+n); return next; };
 const weekStart = d => addDays(d,-((d.getDay()+6)%7));
 const today = parseDate(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
-let teams = [], orders = [], assignments = [], user = null;
+let teams = [], orders = [], assignments = [], personnel = [], user = null;
+const NEW_ORDER = '__new__';
+let activePersonId = null;
 let cursor = new Date(today), view = 'week', selectedId = null, selectedDate = null, lastOrderId = null;
 const canEdit = () => user?.role === 'admin';
 const orderFor = a => orders.find(o => o.id === a.workOrderId);
@@ -237,6 +395,21 @@ const statusMatches = o => $('status').value === 'all' || o.status === $('status
 const filtered = () => assignments.filter(a => ($('team').value === 'all' || a.teamId === $('team').value) && statusMatches(orderFor(a)));
 const selectedTeam = () => document.querySelector('input[name="edit-team"]:checked')?.value;
 const sorted = list => list.slice().sort((a,b) => a.start.localeCompare(b.start));
+function readExpandedTeams() {
+  try {
+    const ids = JSON.parse(localStorage.getItem('deli.expandedTeams'));
+    if (Array.isArray(ids) && ids.every(id => typeof id === 'string')) return new Set(ids);
+  } catch {}
+  return new Set(['north-a']);
+}
+let expandedTeams = readExpandedTeams();
+function rememberTeams() {
+  try { localStorage.setItem('deli.expandedTeams',JSON.stringify([...expandedTeams])); } catch {}
+}
+function expandTeam(teamId) {
+  expandedTeams.add(teamId); rememberTeams();
+}
+
 
 async function api(path, options = {}) {
   let response;
@@ -250,7 +423,10 @@ async function api(path, options = {}) {
 }
 
 function showLogin(message = '') {
-  user = null; teams = []; orders = []; assignments = []; selectedId = null;
+  user = null; teams = []; orders = []; assignments = []; personnel = []; selectedId = null;
+  activePersonId = null;
+  $('account-menu').open = false;
+  $('queue-panel').open = true;
   $('dashboard').hidden = true;
   $('editor').hidden = true;
   $('calendar').innerHTML = ''; $('queue').innerHTML = '';
@@ -268,22 +444,49 @@ function showError(error) {
 
 async function loadData() {
   const data = await api('/api/dashboard');
-  ({teams,orders,assignments,user} = data);
+  ({teams,orders,assignments,personnel,user} = data);
   $('account-role').textContent = user.role;
-  $('assignment-form').hidden = !canEdit();
+  $('order-form').dataset.role = user.role;
+  $('admin-fields').hidden = !canEdit();
+  $('readonly-fields').hidden = canEdit();
   $('global-error').hidden = true;
   $('login-screen').hidden = true;
   $('dashboard').hidden = false;
+  $('personnel-link').hidden = !canEdit();
+  $('new-order').hidden = !canEdit();
+  const query = document.documentElement.dataset.theme === 'light' ? '?theme=light' : '';
+  for (const id of ['calendar-link','back-calendar','denied-back']) $(id).href = '/' + query;
+  $('personnel-link').href = '/admin/personnel' + query;
+  const management = location.pathname === '/admin/personnel';
+  $('calendar-page').hidden = management;
+  $('personnel-page').hidden = !management || !canEdit();
+  $('access-denied').hidden = !management || canEdit();
+  if (management && canEdit()) renderPersonnel();
   render();
 }
 
+function matchesPerson(order) {
+  return !activePersonId || order.person1Id===activePersonId || order.person2Id===activePersonId;
+}
+function personFocusClass(order) {
+  return activePersonId ? matchesPerson(order) ? 'is-person-match' : 'is-person-dim' : '';
+}
+function crewMarkup(order) {
+  return '<span class="crew">'+[['person1Id','人員(主)'],['person2Id','人員(從)']].map(([key,label])=>{
+    const person=personnel.find(p=>p.id===order[key]);
+    return person ? `<i class="person-code" title="${esc(label+'：'+person.name)}" aria-label="${esc(label+'：'+person.name)}">${esc(person.short || person.name)}</i>` : '';
+  }).join('')+'</span>';
+}
+function renderPersonFilters() {
+  $('personnel-highlights').innerHTML=`<button class="person-filter" data-focus-person="" aria-pressed="${!activePersonId}">全部人員</button>`+personnel.map(p=>`<button class="person-filter" data-focus-person="${esc(p.id)}" aria-pressed="${activePersonId===p.id}" title="${esc(p.name)}"><b>${esc(p.short || p.name)}</b>${esc(p.name)}</button>`).join('');
+}
 function jobButton(a) {
   const o = orderFor(a);
-  const label = `${teamFor(a).name}，${a.start} 至 ${a.end}，${o.title}，${o.customer}，${o.status}${o.priority === 'urgent' ? '，急件' : ''}`;
-  return `<button class="job" data-order="${esc(o.id)}" data-status="${esc(o.status)}" aria-label="${esc(label)}" title="${esc(label)}" aria-pressed="${selectedId === o.id}">
+  const label = `${teamFor(a).name}，${a.start} 至 ${a.end}，${o.title}，${o.customer}，${o.status}，人員(主)：${o.person1||'未指派'}，人員(從)：${o.person2||'未指派'}${o.priority === 'urgent' ? '，急件' : ''}`;
+  return `<button class="job order-card ${personFocusClass(o)}" data-order="${esc(o.id)}" data-status="${esc(o.status)}" aria-label="${esc(label)}" title="${esc(label)}" aria-pressed="${selectedId === o.id}">
     <time>${esc(a.start)}–${esc(a.end)}</time><span class="job-status">${esc(o.status)}</span>
     <span class="job-title">${o.priority === 'urgent' ? '<i class="urgent">急</i>' : ''}<b>${esc(o.title)}</b></span>
-    <span class="customer">${esc(o.customer)}</span>
+    <span class="customer"><span class="customer-name">${esc(o.customer)}</span>${crewMarkup(o)}</span>
   </button>`;
 }
 
@@ -300,12 +503,16 @@ function renderWeek(list) {
       const d = addDays(start,i), key = dateKey(d);
       return `<div class="${key === dateKey(today) ? 'is-today' : ''}">週${w}<br><b>${d.getDate()}</b></div>`;
     }).join('')}</div>
-    ${shownTeams.map(t => `<div class="team-row"><div class="team-name">${esc(t.name)}<small>${visible.filter(a => a.teamId === t.id).length} 筆派工</small></div>
+    ${shownTeams.map(t => {
+      const expanded = expandedTeams.has(t.id);
+      return `<div class="team-row ${expanded ? '' : 'is-collapsed'}" data-team-row="${esc(t.id)}"><button type="button" class="team-name" data-toggle-team="${esc(t.id)}" aria-expanded="${expanded}" aria-label="${expanded ? '收合' : '展開'}${esc(t.name)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg><span><strong>${esc(t.name)}</strong><small>${visible.filter(a => a.teamId === t.id).length} 筆派工</small></span></button>
       ${weekdays.map((_,i) => {
         const key = dateKey(addDays(start,i)), cell = sorted(visible.filter(a => a.date === key && a.teamId === t.id));
-        const editable = selectedId && canEdit() && cell.length === 0;
-        return `<div class="lane ${i>4 ? 'is-weekend' : ''} ${selectedDate === key ? 'is-selected' : ''} ${editable ? 'is-editable' : ''}" data-team="${esc(t.id)}" data-date="${key}" ${editable ? `tabindex="0" role="button" aria-label="將工單安排至 ${key} ${esc(t.name)}"` : `role="group" aria-label="${key} ${esc(t.name)}，${cell.length} 筆派工"`}>${cell.map(jobButton).join('')}</div>`;
-      }).join('')}</div>`).join('')}
+        const editable = expanded && selectedId && canEdit() && cell.length === 0;
+        const contents = expanded ? cell.map(jobButton).join('') : cell.length ? `<button type="button" class="lane-summary" data-expand-team="${esc(t.id)}" data-date="${key}" aria-label="展開${esc(t.name)} ${key} 的 ${cell.length} 件派工">${cell.length} 件${cell.some(a => orderFor(a).priority==='urgent') ? '<small>含急件</small>' : ''}</button>` : '<span class="lane-zero">0 件</span>';
+        return `<div class="lane ${i>4 ? 'is-weekend' : ''} ${selectedDate === key ? 'is-selected' : ''} ${editable ? 'is-editable' : ''}" data-team="${esc(t.id)}" data-date="${key}" ${editable ? `tabindex="0" role="button" aria-label="將工單安排至 ${key} ${esc(t.name)}"` : `role="group" aria-label="${key} ${esc(t.name)}，${cell.length} 筆派工"`}>${contents}</div>`;
+      }).join('')}</div>`;
+    }).join('')}
   </div></div>`;
 }
 
@@ -320,9 +527,9 @@ function renderMonth(list) {
       const urgent = daily.some(a => orderFor(a).priority === 'urgent');
       return `<div class="month-cell ${d.getMonth() !== cursor.getMonth() ? 'other' : ''}">
         <button class="day-button ${key === dateKey(today) ? 'is-today' : ''}" data-day="${key}" aria-label="查看 ${key} 所在週">${d.getDate()}</button>
-        ${daily.slice(0,3).map(a => { const o = orderFor(a); return `<button class="mjob" data-order="${esc(o.id)}" data-status="${esc(o.status)}" aria-label="${esc(teamFor(a).name+' '+o.title+' '+o.customer)}" title="${esc(teamFor(a).name+' '+o.title+' '+o.customer)}"><b>${esc(teamFor(a).short)}</b><span>${esc(o.title)}</span></button>`; }).join('')}
+        ${daily.slice(0,3).map(a => { const o = orderFor(a); return `<button class="mjob order-card ${personFocusClass(o)}" data-order="${esc(o.id)}" data-status="${esc(o.status)}" aria-label="${esc(teamFor(a).name+' '+o.title+' '+o.customer)}" title="${esc(teamFor(a).name+' '+o.title+' '+o.customer)}"><b>${esc(teamFor(a).short)}</b><span class="month-title">${esc(o.title)}</span>${crewMarkup(o)}</button>`; }).join('')}
         ${daily.length > 3 ? `<button class="month-more" data-day="${key}" aria-label="查看 ${key} 全部 ${daily.length} 筆派工">+${daily.length-3}</button>` : ''}
-        ${daily.length ? `<button class="mcount ${urgent ? 'urgent-count' : ''}" data-day="${key}" aria-label="查看 ${key} 的 ${daily.length} 筆派工${urgent ? '，含急件' : ''}">${daily.length}筆</button>` : ''}
+        ${daily.length ? `<button class="mcount order-card ${activePersonId ? daily.some(a=>matchesPerson(orderFor(a))) ? 'is-person-match' : 'is-person-dim' : ''} ${urgent ? 'urgent-count' : ''}" data-day="${key}" aria-label="查看 ${key} 的 ${daily.length} 筆派工${urgent ? '，含急件' : ''}">${daily.length}筆</button>` : ''}
       </div>`;
     }).join('')}
   </div>`;
@@ -332,18 +539,19 @@ function renderQueue() {
   const region = teams.find(t => t.id === $('team').value)?.region;
   const queue = orders.filter(o => !assignments.some(a => a.workOrderId === o.id) && statusMatches(o) && (!region || o.region === region));
   $('queue-count').textContent = queue.length;
-  $('queue').innerHTML = queue.length ? queue.map(o => `<button class="queue-item" data-order="${esc(o.id)}" aria-pressed="${selectedId === o.id}">
+  $('queue').innerHTML = queue.length ? queue.map(o => `<button class="queue-item order-card ${personFocusClass(o)}" data-order="${esc(o.id)}" aria-pressed="${selectedId === o.id}">
     <span class="queue-top">${o.priority === 'urgent' ? '<i class="urgent">急</i>' : ''}<strong>${esc(o.title)}</strong><span class="region">${esc(o.region)}</span></span>
-    <span class="queue-meta">${esc(o.id)} · ${esc(o.customer)} · ${esc(o.address)}</span>
+    <span class="queue-footer"><span class="queue-meta">${esc(o.id)} · ${esc(o.customer)} · ${esc(o.address)}</span>${crewMarkup(o)}</span>
   </button>`).join('') : '<p class="empty">沒有符合條件的待排工單。</p>';
 }
 
 function highlightTarget() {
   const teamId = selectedTeam(), date = $('edit-date').value;
-  document.querySelectorAll('.lane').forEach(lane => lane.classList.toggle('is-target', !!selectedId && canEdit() && lane.dataset.team === teamId && lane.dataset.date === date));
+  document.querySelectorAll('.lane').forEach(lane => lane.classList.toggle('is-target', !!selectedId && canEdit() && $('edit-scheduled').checked && lane.dataset.team === teamId && lane.dataset.date === date));
 }
 
 function render() {
+  $('week-controls').hidden = view !== 'week';
   $('week').setAttribute('aria-pressed', view === 'week');
   $('month').setAttribute('aria-pressed', view === 'month');
   $('prev').setAttribute('aria-label', view === 'week' ? '上一週' : '上一月');
@@ -353,45 +561,99 @@ function render() {
   const scroll = document.querySelector('.week-scroll');
   if (scroll) scroll.scrollLeft = left;
   renderQueue();
+  renderPersonFilters();
   highlightTarget();
 }
 
-function openOrder(id) {
-  selectedId = id; lastOrderId = id;
-  const o = orders.find(o => o.id === id), a = assignments.find(a => a.workOrderId === id);
+function openOrder(id = null) {
+  const creating = id === null;
+  if (creating && !canEdit()) return;
+  selectedId = creating ? NEW_ORDER : id; lastOrderId = id;
+  const defaultRegion = teams.find(t=>t.id===$('team').value)?.region || '北部';
+  const o = creating ? {title:'',customer:'',region:defaultRegion,address:'',phone:'',status:'待出勤',priority:'normal',content:'',notes:'',person1Id:null,person2Id:null,person1:'',person2:''} : orders.find(o => o.id === id);
+  const a = creating ? null : assignments.find(a => a.workOrderId === id);
   const filteredTeam = teams.find(t => t.id === $('team').value && t.region === o.region);
   const defaultTeam = a?.teamId || filteredTeam?.id || teams.find(t => t.region === o.region).id;
   $('editor').hidden = false;
-  $('editor-title').textContent = o.title;
-  $('editor-meta').textContent = `${o.id} · ${o.customer} · ${o.address}`;
+  $('queue-panel').open = false;
+  if (a) expandTeam(a.teamId);
+  $('editor-title').textContent = creating ? '建立新工單' : '工單詳情';
+  $('editor-meta').textContent = creating ? '' : `${o.id} · ${o.customer}`;
+  $('detail-title').textContent = o.title;
+  $('detail-person1').textContent = o.person1 || '未指派';
+  $('detail-person2').textContent = o.person2 || '未指派';
+  $('detail-address').textContent = o.address || '未提供';
+  $('detail-content').textContent = o.content || '未提供';
+  const phone = $('detail-phone');
+  phone.textContent = o.phone || '未提供';
+  phone.removeAttribute('href');
+  if (/^[+()0-9\s-]{5,30}$/.test(o.phone) && /[0-9]/.test(o.phone)) phone.href = 'tel:' + o.phone.replace(/[^+0-9]/g,'');
   $('editor-details').textContent = `${o.status}${a ? ` · ${teamFor(a).name} · ${a.date} ${a.start}–${a.end}` : ' · 未排程'}`;
-  $('assignment-form').hidden = !canEdit();
+  $('admin-fields').hidden = !canEdit();
+  $('readonly-fields').hidden = canEdit();
+  for (const field of ['title','customer','region','address','phone','status','priority','content']) {
+    $('edit-'+field).value = o[field];
+    $('edit-'+field).disabled = !canEdit();
+  }
+  const choices = '<option value="">未指派</option>' + personnel.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+  for (const n of [1,2]) { $('edit-person'+n).innerHTML = choices; $('edit-person'+n).value = o['person'+n+'Id'] || ''; $('edit-person'+n).disabled = !canEdit(); }
+  $('edit-notes').value = o.notes;
+  $('edit-scheduled').checked = !!a;
+  $('save-order').textContent = creating ? '建立工單' : canEdit() ? '儲存工單' : '儲存備註';
   $('edit-team').innerHTML = canEdit() ? teams.map(t => `<label><input type="radio" name="edit-team" value="${esc(t.id)}" ${t.id === defaultTeam ? 'checked' : ''} required><span>${esc(t.name)}</span></label>`).join('') : '';
   $('edit-date').value = a?.date || dateKey(cursor);
   $('edit-start').value = a?.start || '09:00';
   $('edit-end').value = a?.end || '11:00';
+  syncScheduleFields();
   $('feedback').textContent = '';
   if (a) cursor = parseDate(a.date);
   render();
   $('editor').scrollIntoView({block:'start'});
-  const focus = canEdit() ? document.querySelector('input[name="edit-team"]:checked') : $('close');
+  const focus = canEdit() ? $('edit-title') : $('edit-notes');
   focus.focus({preventScroll:true});
 }
 
 function closeEditor() {
-  $('editor').hidden = true; selectedId = null; render();
+  $('editor').hidden = true; $('queue-panel').open = true; selectedId = null; render();
   const target = [...document.querySelectorAll('[data-order]')].find(e => e.dataset.order === lastOrderId);
   (target || $('today')).focus({preventScroll:true});
 }
 
 function setTarget(lane) {
   if (!canEdit() || !selectedId) return;
+  $('edit-scheduled').checked = true; syncScheduleFields();
   document.querySelector(`input[name="edit-team"][value="${lane.dataset.team}"]`).checked = true;
   $('edit-date').value = lane.dataset.date;
   highlightTarget();
 }
 
 document.addEventListener('click', e => {
+  const personButton = e.target.closest('[data-focus-person]');
+  if (personButton) {
+    const id = personButton.dataset.focusPerson;
+    activePersonId = id && activePersonId!==id ? id : null;
+    if (activePersonId) {
+      const start=dateKey(weekStart(cursor)),end=dateKey(addDays(weekStart(cursor),6)),month=dateKey(cursor).slice(0,7);
+      filtered().filter(a=>matchesPerson(orderFor(a)) && (view==='week' ? a.date>=start && a.date<=end : a.date.slice(0,7)===month)).forEach(a=>expandTeam(a.teamId));
+    }
+    render();
+    document.querySelector(`[data-focus-person="${activePersonId || ''}"]`).focus({preventScroll:true});
+    return;
+  }
+  const toggle = e.target.closest('[data-toggle-team]');
+  if (toggle) {
+    const id = toggle.dataset.toggleTeam;
+    if (expandedTeams.has(id)) expandedTeams.delete(id); else expandedTeams.add(id);
+    rememberTeams(); render();
+    document.querySelector(`[data-toggle-team="${id}"]`).focus({preventScroll:true});
+    return;
+  }
+  const expand = e.target.closest('[data-expand-team]');
+  if (expand) {
+    expandTeam(expand.dataset.expandTeam); selectedDate = expand.dataset.date; render();
+    document.querySelector(`[data-team="${expand.dataset.expandTeam}"][data-date="${expand.dataset.date}"] .job`)?.focus({preventScroll:true});
+    return;
+  }
   const order = e.target.closest('[data-order]');
   if (order) { openOrder(order.dataset.order); return; }
   const day = e.target.closest('[data-day]');
@@ -409,37 +671,76 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && selectedId) closeEditor();
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.lane.is-editable')) { e.preventDefault(); setTarget(e.target); }
 });
-$('assignment-form').addEventListener('input', highlightTarget);
+$('order-form').addEventListener('input', e => {
+  if (e.target.matches('input[name="edit-team"],#edit-date') && $('edit-scheduled').checked && !expandedTeams.has(selectedTeam())) {
+    expandTeam(selectedTeam()); render();
+  }
+  highlightTarget();
+});
+$('edit-scheduled').onchange = syncScheduleFields;
 for (const mode of ['week','month']) $(mode).onclick = () => { view = mode; render(); };
 for (const [id,direction] of [['prev',-1],['next',1]]) $(id).onclick = () => {
   cursor = view === 'week' ? addDays(cursor,direction*7) : new Date(cursor.getFullYear(),cursor.getMonth()+direction,1,12);
   selectedDate = null; render();
 };
-for (const id of ['team','status']) $(id).onchange = render;
+$('team').onchange = () => { if ($('team').value !== 'all') expandTeam($('team').value); render(); };
+$('status').onchange = render;
+$('expand-all').onclick = () => { teams.forEach(t => expandedTeams.add(t.id)); rememberTeams(); render(); };
+$('collapse-all').onclick = () => { expandedTeams.clear(); rememberTeams(); render(); };
 $('today').onclick = () => { cursor = new Date(today); selectedDate = dateKey(today); render(); };
 $('close').onclick = closeEditor;
+$('new-order').onclick = () => openOrder();
 
-$('assignment-form').onsubmit = async e => {
+function syncScheduleFields() {
+  const enabled = canEdit() && $('edit-scheduled').checked;
+  $('schedule-fields').hidden = !enabled;
+  if (enabled && !expandedTeams.has(selectedTeam())) { expandTeam(selectedTeam()); render(); }
+  $('schedule-fields').querySelectorAll('input').forEach(input => { input.disabled = !enabled; input.required = enabled; });
+  highlightTarget();
+}
+
+$('order-form').onsubmit = async e => {
   e.preventDefault();
-  const start = $('edit-start').value, end = $('edit-end').value;
-  if (end <= start) { $('feedback').className = 'error'; $('feedback').textContent = '結束時間須晚於開始時間。'; return; }
-  const values = {workOrderId:selectedId, teamId:selectedTeam(), date:$('edit-date').value, start, end};
-  const submit = $('assignment-form').querySelector('[type="submit"]');
+  const orderId = selectedId, values = {notes:$('edit-notes').value};
+  if (canEdit()) {
+    for (const field of ['title','customer','region','address','phone','status','priority','content']) values[field] = $('edit-'+field).value;
+    values.person1Id = $('edit-person1').value || null;
+    values.person2Id = $('edit-person2').value || null;
+    values.assignment = $('edit-scheduled').checked ? {teamId:selectedTeam(),date:$('edit-date').value,start:$('edit-start').value,end:$('edit-end').value} : null;
+  }
+  const submit = $('save-order');
   submit.disabled = true; submit.textContent = '儲存中…';
   try {
-    await api('/api/assignments',{method:'PUT',body:JSON.stringify(values)});
-    cursor = parseDate(values.date); selectedDate = values.date;
+    const creating = orderId===NEW_ORDER;
+    const result = await api(creating ? '/api/orders' : '/api/orders/'+encodeURIComponent(orderId),{method:creating ? 'POST' : 'PUT',body:JSON.stringify(values)});
+    if (values.assignment) { cursor = parseDate(values.assignment.date); selectedDate = values.assignment.date; }
     await loadData();
-    if (selectedId === values.workOrderId) {
-      const o = orders.find(o => o.id === selectedId), a = assignments.find(a => a.workOrderId === selectedId);
-      $('editor-details').textContent = `${o.status} · ${teamFor(a).name} · ${a.date} ${a.start}–${a.end}`;
-      $('feedback').className = 'saved'; $('feedback').textContent = '已儲存。';
-    }
+    if (selectedId === orderId) { openOrder(result.order.id); $('feedback').className = 'saved'; $('feedback').textContent = creating ? '已建立工單。' : '已儲存。'; }
   } catch (error) {
     if (error.status === 401) showError(error);
-    else { $('feedback').className = 'error'; $('feedback').textContent = error.message; }
-  } finally { submit.disabled = false; submit.textContent = '儲存排程'; }
+    else if (selectedId === orderId) { $('feedback').className = 'error'; $('feedback').textContent = error.message; }
+  } finally { submit.disabled = false; submit.textContent = selectedId===NEW_ORDER ? '建立工單' : canEdit() ? '儲存工單' : '儲存備註'; }
 };
+
+function renderPersonnel() {
+  $('people-list').innerHTML = personnel.map(p => `<form class="person-row" data-person="${esc(p.id)}"><label><input aria-label="${esc(p.name)} 的姓名" name="name" value="${esc(p.name)}" maxlength="80" required></label><label class="person-short"><input aria-label="${esc(p.name)} 的縮寫" name="short" value="${esc(p.short || '')}" maxlength="8" required></label><button type="submit">儲存</button></form>`).join('');
+}
+
+async function savePerson(form, personId) {
+  const input = form.querySelector('input'), button = form.querySelector('button');
+  button.disabled = true; $('people-feedback').textContent = '';
+  try {
+    await api('/api/personnel'+(personId ? '/'+encodeURIComponent(personId) : ''),{method:personId ? 'PUT' : 'POST',body:JSON.stringify({name:input.value,...(personId || $('new-person-short').value.trim() ? {short:personId ? form.querySelector('[name=short]').value : $('new-person-short').value} : {})})});
+    await loadData();
+    if (!personId) { input.value = ''; $('new-person-short').value = ''; }
+    $('people-feedback').className = 'saved'; $('people-feedback').textContent = '人員資料已儲存。';
+  } catch (error) {
+    if (error.status === 401) showError(error);
+    else { $('people-feedback').className = 'error'; $('people-feedback').textContent = error.message; }
+  } finally { button.disabled = false; }
+}
+$('people-list').addEventListener('submit',e => { e.preventDefault(); savePerson(e.target,e.target.dataset.person); });
+$('new-person').onsubmit = e => { e.preventDefault(); savePerson(e.target,null); };
 
 $('login-form').onsubmit = async e => {
   e.preventDefault(); $('login-submit').disabled = true; $('login-submit').textContent = '登入中…'; $('login-error').hidden = true;

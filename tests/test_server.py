@@ -63,6 +63,13 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(status,200)
         self.assertEqual(len(data['teams']),3)
         self.assertNotIn('password_hash',json.dumps(data))
+        sample = next(o for o in data['orders'] if o['id']=='WO-1101')
+        self.assertEqual(sample['title'],'設備定期保養')
+        self.assertEqual(sample['person1'],'人員 1')
+        self.assertEqual(sample['person2'],'人員 2')
+        self.assertEqual(sample['address'],'新北市永和區')
+        self.assertEqual(sample['phone'],'02-0000-0000')
+        self.assertEqual(sample['content'],'示意內容：設備定期保養。\n到場後與門市確認作業範圍，完成檢查後回報處理結果。')
         self.assertEqual(self.request('PUT','/api/assignments',{'role':'admin'},cookie)[0],403)
         counts = {}
         for item in data['assignments']:
@@ -115,6 +122,153 @@ class ServiceTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda order:self.request('PUT','/api/assignments',{**values,'workOrderId':order},cookie)[0],['WO-1109','WO-1110']))
         self.assertEqual(sorted(results),[200,409])
+
+
+    def test_07_field_permissions_and_atomic_order_save(self):
+        admin,user = self.login(),self.login('user')
+        payload = {'title':'新的檢修項目','customer':'測試客戶','region':'北部','address':'測試地址','phone':'02-0000-1234',
+                   'content':'第一行\n第二行','notes':'管理員備註','status':'進行中','priority':'urgent','person1Id':'p1','person2Id':'p2',
+                   'assignment':{'teamId':'north-a','date':'2031-01-01','start':'09:00','end':'10:00'}}
+        status,result,_ = self.request('PUT','/api/orders/WO-1101',payload,admin)
+        self.assertEqual(status,200)
+        for key,value in payload.items():
+            if key!='assignment': self.assertEqual(result['order'][key],value)
+        before = result['order']
+        from server import connect
+        with connect(self.db_path) as db:
+            db.execute("UPDATE work_orders SET person2_id=person1_id WHERE id='WO-1102'")
+        self.assertEqual(self.request('PUT','/api/orders/WO-1102',{'notes':'重複舊人員仍可加註'},user)[0],200)
+        with connect(self.db_path) as db:
+            db.execute("UPDATE work_orders SET person2_id='p2',notes='' WHERE id='WO-1102'")
+        self.assertEqual(self.request('PUT','/api/orders/WO-1101',{'notes':'不得寫入','title':'越權修改'},user)[0],403)
+        data = self.request('GET','/api/dashboard',cookie=user)[1]
+        self.assertEqual(next(o for o in data['orders'] if o['id']=='WO-1101'),before)
+        status,result,_ = self.request('PUT','/api/orders/WO-1101',{'notes':'使用者備註'},user)
+        self.assertEqual(status,200)
+        self.assertEqual(result['order'],{**before,'notes':'使用者備註'})
+        self.assertEqual(self.request('PUT','/api/orders/WO-1101',{'person1Id':'p1','person2Id':'p1'},admin)[0],400)
+        self.assertEqual(self.request('PUT','/api/orders/WO-1101',{'person1Id':'missing'},admin)[0],400)
+        conflict = {'title':'不應儲存的名稱','notes':'不應儲存的備註','assignment':payload['assignment']}
+        self.assertEqual(self.request('PUT','/api/orders/WO-1102',conflict,admin)[0],409)
+        after = self.request('GET','/api/dashboard',cookie=admin)[1]
+        original = next(o for o in after['orders'] if o['id']=='WO-1102')
+        self.assertEqual(original['title'],'冷藏設備檢修')
+        self.assertEqual(original['notes'],'')
+        self.assertEqual(self.request('PUT','/api/orders/WO-1101',{'notes':'備'*5000},user)[0],200)
+        self.assertEqual(self.request('PUT','/api/orders/WO-1101',{'assignment':None},user)[0],403)
+        self.assertEqual(self.request('PUT','/api/orders/WO-1101',{'assignment':None},admin)[0],200)
+        after = self.request('GET','/api/dashboard',cookie=admin)[1]
+        self.assertFalse(any(a['workOrderId']=='WO-1101' for a in after['assignments']))
+
+    def test_08_personnel_management(self):
+        admin,user = self.login(),self.login('user')
+        data = self.request('GET','/api/dashboard',cookie=admin)[1]
+        self.assertEqual(len(data['personnel']),6)
+        self.assertEqual(self.request('POST','/api/personnel',{'name':'無權新增'},user)[0],403)
+        self.assertEqual(self.request('PUT','/api/personnel/p1',{'name':'無權修改'},user)[0],403)
+        self.assertEqual(self.request('POST','/api/personnel',{'name':''},admin)[0],400)
+        self.assertEqual(self.request('PUT','/api/personnel/p1',{'name':'人員 2'},admin)[0],409)
+        self.assertEqual(self.request('PUT','/api/personnel/p1',{'name':'改名人員'},admin)[0],200)
+        data = self.request('GET','/api/dashboard',cookie=user)[1]
+        self.assertEqual(next(o for o in data['orders'] if o['id']=='WO-1101')['person1'],'改名人員')
+        self.assertEqual(self.request('PUT','/api/personnel/p1',{'name':'人員 1'},admin)[0],200)
+        result = self.request('POST','/api/personnel',{'name':'新增人員'},admin)
+        self.assertEqual(result[0],200)
+        self.assertEqual(result[1]['person']['name'],'新增人員')
+
+
+    def test_09_create_orders_permissions_and_rollback(self):
+        admin,user = self.login(),self.login('user')
+        data = self.request('GET','/api/dashboard',cookie=admin)[1]
+        count = len(data['orders'])
+        self.assertEqual(self.request('POST','/api/orders',{'title':'越權','customer':'門市'},user)[0],403)
+        self.assertEqual(self.request('POST','/api/orders',{'title':'缺客戶'},admin)[0],400)
+        invalid = {'title':'無效工單','customer':'門市','person1Id':'p1','person2Id':'p1'}
+        self.assertEqual(self.request('POST','/api/orders',invalid,admin)[0],400)
+        self.assertEqual(len(self.request('GET','/api/dashboard',cookie=admin)[1]['orders']),count)
+        body = {'title':'新建保養','customer':'新客戶','region':'南部','address':'新地址','phone':'07-0000-1234','content':'建立測試',
+                'notes':'建立備註','status':'待出勤','priority':'urgent','person1Id':'p3','person2Id':'p4','assignment':None}
+        status,result,_ = self.request('POST','/api/orders',body,admin)
+        self.assertEqual(status,201)
+        self.assertRegex(result['order']['id'],r'^WO-[0-9]+$')
+        for key,value in body.items():
+            if key!='assignment': self.assertEqual(result['order'][key],value)
+        data = self.request('GET','/api/dashboard',cookie=user)[1]
+        self.assertFalse(any(a['workOrderId']==result['order']['id'] for a in data['assignments']))
+        planned = {**body,'title':'連同派工建立','assignment':{'teamId':'south-a','date':'2032-01-01','start':'09:00','end':'10:00'}}
+        status,result,_ = self.request('POST','/api/orders',planned,admin)
+        self.assertEqual(status,201)
+        self.assertEqual(self.request('POST','/api/orders',{**planned,'title':'不應留下的工單'},admin)[0],409)
+        data = self.request('GET','/api/dashboard',cookie=admin)[1]
+        self.assertEqual(len(data['orders']),count+2)
+        self.assertFalse(any(o['title']=='不應留下的工單' for o in data['orders']))
+        self.assertTrue(any(a['workOrderId']==result['order']['id'] for a in data['assignments']))
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(lambda n:self.request('POST','/api/orders',{'title':f'並行工單 {n}','customer':'測試門市'},admin),[1,2]))
+        self.assertEqual([r[0] for r in results],[201,201])
+        self.assertNotEqual(results[0][1]['order']['id'],results[1][1]['order']['id'])
+
+    def test_10_personnel_abbreviations(self):
+        admin = self.login()
+        body={'name':'人員 1','short':'QL'}
+        self.assertEqual(self.request('PUT','/api/personnel/p1',body,admin)[0],200)
+        self.assertEqual(self.request('PUT','/api/personnel/p2',{'name':'人員 2','short':'ql'},admin)[0],409)
+        self.assertEqual(self.request('POST','/api/personnel',{'name':'空縮寫','short':''},admin)[0],400)
+        self.assertEqual(self.request('PUT','/api/personnel/p1',{'name':'改名保持縮寫'},admin)[1]['person']['short'],'QL')
+        self.assertEqual(self.request('PUT','/api/personnel/p1',{'name':'人員 1','short':'Ä'},admin)[0],200)
+        self.assertEqual(self.request('PUT','/api/personnel/p2',{'name':'人員 2','short':'ä'},admin)[0],409)
+        self.assertEqual(self.request('PUT','/api/personnel/p1',{'name':'人員 1','short':'P1'},admin)[0],200)
+        result=self.request('POST','/api/personnel',{'name':'自訂縮寫人員','short':'林'},admin)
+        self.assertEqual(result[0],200)
+        self.assertEqual(result[1]['person']['short'],'林')
+
+
+class MigrationTests(unittest.TestCase):
+    def test_existing_database_preserves_schedule_and_custom_details(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp)/'old.sqlite3'
+            initialize(path)
+            with sqlite3.connect(path) as db:
+                db.execute("ALTER TABLE work_orders ADD COLUMN person1 TEXT NOT NULL DEFAULT ''")
+                db.execute("ALTER TABLE work_orders ADD COLUMN person2 TEXT NOT NULL DEFAULT ''")
+                db.execute("UPDATE work_orders SET person1='人員 A（示意）',person2='人員 B（示意）'")
+                db.execute("UPDATE work_orders SET person1='王先生',person2='李小姐',phone='02-0000-1234',content='保留自訂內容' WHERE id='WO-1101'")
+                for column in ('person1_id','person2_id','notes'):
+                    db.execute(f'ALTER TABLE work_orders DROP COLUMN {column}')
+                db.execute("UPDATE assignments SET date='2030-01-01' WHERE id='a0'")
+            initialize(path)
+            initialize(path)
+            from server import read_orders
+            with sqlite3.connect(path) as db:
+                db.row_factory=sqlite3.Row
+                self.assertEqual(db.execute("SELECT date FROM assignments WHERE id='a0'").fetchone()[0],'2030-01-01')
+                orders=read_orders(db)
+                custom=next(o for o in orders if o['id']=='WO-1101')
+                self.assertEqual((custom['person1'],custom['person2'],custom['phone'],custom['content'],custom['notes']),('王先生','李小姐','02-0000-1234','保留自訂內容',''))
+                demo=next(o for o in orders if o['id']=='WO-1107')
+                self.assertEqual((demo['person1'],demo['person2']),('人員 5','人員 6'))
+                self.assertEqual(db.execute('SELECT COUNT(*) FROM personnel').fetchone()[0],8)
+
+
+    def test_personnel_short_migration(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'old-personnel.sqlite3'
+            initialize(path)
+            with sqlite3.connect(path) as db:
+                db.execute('DROP INDEX personnel_short_unique')
+                db.execute('ALTER TABLE personnel DROP COLUMN short')
+                db.execute("INSERT INTO personnel(id,name) VALUES('custom','舊自訂姓名')")
+            initialize(path)
+            initialize(path)
+            with sqlite3.connect(path) as db:
+                self.assertEqual(db.execute("SELECT name,short FROM personnel WHERE id='p1'").fetchone(),('人員 1','P1'))
+                self.assertEqual(db.execute("SELECT name,short FROM personnel WHERE id='custom'").fetchone(),('舊自訂姓名','P7'))
+                db.execute("UPDATE personnel SET short='舊' WHERE id='custom'")
+            initialize(path)
+            with sqlite3.connect(path) as db:
+                self.assertEqual(db.execute("SELECT short FROM personnel WHERE id='custom'").fetchone()[0],'舊')
 
 
 class PublicPreviewTests(unittest.TestCase):
